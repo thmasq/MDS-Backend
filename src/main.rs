@@ -1,9 +1,9 @@
-use actix_files::{NamedFile, Files};
-use actix_web::{App, HttpServer, web, HttpResponse, Error};
-use meilisearch_sdk::client::Client;
-use std::path::PathBuf;
-use serde::Deserialize;
 use serde::Serialize;
+use serde::Deserialize;
+use std::path::PathBuf;
+use actix_files::{NamedFile, Files};
+use meilisearch_sdk::client::Client;
+use actix_web::{App, HttpServer, web, HttpResponse, Error};
 
 //It was necessary to wrap my query because actix receives it as a serialized JSON file, which needs to be deserialized to be worked with.
 //The debug macro was used for the code to be able to pretty print the requests for diagnosing and experimentation.
