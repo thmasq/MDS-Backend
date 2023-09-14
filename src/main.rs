@@ -98,19 +98,17 @@ async fn main() -> std::io::Result<()> {
         Some("OSepughN96MyXGm3wNqaDtCr_tJwzxusvWvkel22NU8"),
     );
 
-    //Creates an instance of an Actix-web http server
+    let meilisearch_client_data = web::Data::new(meilisearch_client.clone());
+
     let server = HttpServer::new(move || {
         App::new()
-            //I was basing this prototype on an old code snippet I found, which used the deprecated .data function.
-            //I still haven't figured out an elegant way of replacing it with the newer app_data function.
-            .data(meilisearch_client.clone()) //Share the client across requests
+            .app_data(meilisearch_client_data.clone()) // Share the client across requests
             .service(web::resource("/search").to(search))
             .service(Files::new("/static", "static").show_files_listing())
             .route("/", web::get().to(index))
             .default_service(web::route().to(HttpResponse::NotFound))
     });
 
-    //This binds the server to a specific address and port
     let server = server.bind("127.0.0.1:8080")?;
     println!("Actix-web server started at http://127.0.0.1:8080");
     server.run().await
