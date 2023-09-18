@@ -1,88 +1,50 @@
-use pdf::object::*;
-use pdf::file::File;
-use pdf::primitive::*;
-use pdf::error::PdfError;
-use std::collections::HashMap;
+use pdf_extract::extract_text;
+use fancy_regex::Regex;
+use std::path::Path;
 
-//
-fn extract_title(file: &File<Vec<u8>>) -> Result<String, PdfError> {
-    for page in file.pages() {
-        let title = page.page_dict
-            .get("Contents")
-            .and_then(|page_refs| file.resolve(page_refs.clone()).ok())
-            .and_then(|contents| file.get_stream(contents).ok())
-            .and_then(|contents| {
-                let text_content = extract_text_from_content(&contents).ok()?;
-                find_title_in_text(&text_content)
-            });
-    
-        if let Some(title) = title {
-            return Ok(title);
+fn extract_title<P: AsRef<Path>>(path: P, keywords: &[&str]) -> Result<Option<String>, pdf_extract::OutputError> {
+    let text = extract_text(path)?;
+
+    // println!("Original PDF Contents:\n{}", text);
+
+    let formatted_text = format_text(&text);
+
+    println!("Formatted PDF Contents:\n{}", formatted_text);
+
+    for line in formatted_text.lines() {
+        if keywords.iter().any(|&keyword| line.contains(keyword)) {
+            return Ok(Some(line.to_string()));
         }
     }
-    
-    Err(PdfError::Custom("Title not found".to_string()))
+
+    Ok(None)
 }
 
-fn extract_text_from_content(contents: &Stream) -> Result<String, PdfError> {
-    // Extract and concatenate text from content streams
-    let mut text_content = String::new();
-    for token in contents.decode()? {
-        if let Token::Operator(op) = token {
-            text_content.push_str(&op.text);
-            text_content.push(' ');
-        }
-    }
-    Ok(text_content)
-}
+fn format_text(input: &str) -> String {
+    let mut formatted_lines = Vec::new();
 
-fn find_title_in_text(text: &str) -> Option<String> {
-    // Split the text into lines
-    let lines: Vec<&str> = text.lines().collect();
+    input.lines().for_each(|line| {
+        // Remove spaces between characters
+        let re = Regex::new(r"(?<=\S)\s(?=\S)").unwrap();
+        let line_without_spaces = re.replace_all(line, "").to_string();
 
-    // Still to define appropriate heuristics for identifying titles
-    let font_size_threshold = 14.0; // Adjust this threshold as needed
-    let alignment_pattern = r"^\s*(?:center|right|left|justify)";
-    let keyword_patterns = ["Chapter", "Section", "Title", "Chapter"];
-    let special_characters = [':', '-', '|']; // Add more if needed
+        // Replace 2 or more spaces with a single space
+        let re2 = Regex::new(r"\s{2,}").unwrap();
+        let line_with_single_spaces = re2.replace_all(&line_without_spaces, " ").to_string();
 
-    for line in lines {
-        // Check font size and style
-        if line.contains("font-size:") {
-            let font_size = extract_font_size(line);
-            if font_size > font_size_threshold {
-                return Some(line.to_string());
-            }
-        }
+        formatted_lines.push(line_with_single_spaces);
+    });
 
-        // Check text alignment
-        if regex::is_match(line, alignment_pattern).is_ok() {
-            return Some(line.to_string());
-        }
-
-        // Check for keywords
-        for keyword in &keyword_patterns {
-            if line.contains(keyword) {
-                return Some(line.to_string());
-            }
-        }
-
-        // Check for special characters
-        for character in &special_characters {
-            if line.contains(*character) {
-                return Some(line.to_string());
-            }
-        }
-    }
-
-    None
+    formatted_lines.join("\n")
 }
 
 fn main() {
-    let file = File::<Vec<u8>>::open("example.pdf").unwrap();
+    let pdf_path = "example.pdf"; // Replace with the actual path to your PDF file
+    let keywords = ["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"]; // Add your list of keywords here
 
-    match extract_title(&file) {
-        Ok(title) => println!("Title: {}", title),
-        Err(e) => eprintln!("Error: {:?}", e),
+    match extract_title(pdf_path, &keywords) {
+        Ok(Some(title)) => println!("Title found: {}", title),
+        Ok(None) => println!("No title found"),
+        Err(err) => eprintln!("Error: {:?}", err),
     }
 }
