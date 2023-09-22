@@ -1,19 +1,20 @@
-use serde::Serialize;
-use serde::Deserialize;
-use std::path::PathBuf;
-use actix_files::{NamedFile, Files};
+use actix_files::{Files, NamedFile};
+use actix_web::{web, App, Error, HttpResponse, HttpServer};
 use meilisearch_sdk::client::Client;
-use actix_web::{App, HttpServer, web, HttpResponse, Error};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-//It was necessary to wrap my query because actix receives it as a serialized JSON file, which needs to be deserialized to be worked with.
-//The debug macro was used for the code to be able to pretty print the requests for diagnosing and experimentation.
+//It was necessary to wrap my query because actix receives it as a serialized JSON file, which
+// needs to be deserialized to be worked with. The debug macro was used for the code to be able to
+// pretty print the requests for diagnosing and experimentation.
 #[derive(Deserialize, Debug)]
 struct SearchQueryWrapper {
     q: String,
 }
 
-//Meilisearch doesn't really have a schema like other Databases, but this struct organizes the fields each object in the DB has
-//Both the serialize and deserialize macros were used as the Meilisearch SDK required Dese and Actix-web required Serialization to format the responses.
+//Meilisearch doesn't really have a schema like other Databases, but this struct organizes the
+// fields each object in the DB has Both the serialize and deserialize macros were used as the
+// Meilisearch SDK required Dese and Actix-web required Serialization to format the responses.
 #[derive(Serialize, Deserialize, Debug)]
 struct Movie {
     id: i32,
@@ -23,22 +24,21 @@ struct Movie {
     release_date: i64,
 }
 
-//This struct wraps the relevant results in a neat way to be used to send responses more efficiently.
+//This struct wraps the relevant results in a neat way to be used to send responses more
+// efficiently.
 #[derive(Serialize, Debug)]
 struct SearchResults {
     results: Vec<Movie>,
 }
 
-//This is the search function, avaliable at <website_address>/search. It listens for Json requests with a string and returns a response with a JSON file.
-//This function is acyncronous, and the main function will call this function as a factory, the threads are disconnected and non blocking.
-async fn search(
-    query: web::Query<SearchQueryWrapper>,
-    client: web::Data<Client>,
-) -> Result<HttpResponse, Error> {
+//This is the search function, avaliable at <website_address>/search. It listens for Json requests
+// with a string and returns a response with a JSON file. This function is acyncronous, and the main
+// function will call this function as a factory, the threads are disconnected and non blocking.
+async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>) -> Result<HttpResponse, Error> {
     println!("Received search request with query: {:#?}", query);
 
     //Construct the search query using the Meilisearch SDK builder pattern
-    let search_results: meilisearch_sdk::search::SearchResults<Movie>  = client
+    let search_results: meilisearch_sdk::search::SearchResults<Movie> = client
         .index("movies")
         .search()
         .with_query(&query.q)
@@ -78,15 +78,18 @@ async fn search(
     Ok(HttpResponse::Ok().json(search_results))
 }
 
-//This function serves the main webpage. Like the search function, each time it is called, the main function will spawn a new disconnected thread.
+//This function serves the main webpage. Like the search function, each time it is called, the main
+// function will spawn a new disconnected thread.
 async fn index() -> Result<NamedFile, Error> {
     let path: PathBuf = PathBuf::from("static/index.html"); //Must be replaced with the actual path to your HTML file
     println!("Serving index.html from path: {:?}", path);
     Ok(NamedFile::open(path)?)
 }
 
-//For the main function, the actix-rt macro is used to make it easy to scale the backend server. It is basically a factory that spawns new disconnected threads for each function execution.
-//This behavior is desired because there really is no advantage of sharing any state between threads for this workload, which reduces atomics overhead. 
+//For the main function, the actix-rt macro is used to make it easy to scale the backend server. It
+// is basically a factory that spawns new disconnected threads for each function execution.
+// This behavior is desired because there really is no advantage of sharing any state between
+// threads for this workload, which reduces atomics overhead.
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     //Configured logging for Actix-web, for debugging purposes only. Must be turned off later
