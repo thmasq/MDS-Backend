@@ -1,10 +1,10 @@
-use pdf_extract::extract_text;
-use fancy_regex::Regex;
-use serde_json::json;
-use std::fs;
 use std::io;
+use std::fs;
 use std::path::Path;
+use serde_json::json;
 use std::error::Error;
+use fancy_regex::Regex;
+use pdf_extract::extract_text;
 
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders = ["in", "out", "old"];
