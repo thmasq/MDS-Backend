@@ -37,7 +37,12 @@ struct SearchResults {
 async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>) -> Result<HttpResponse, Error> {
     println!("Received search request with query: {:#?}", query);
 
-    //Construct the search query using the Meilisearch SDK builder pattern
+    if query.q.len() < 3 {
+        // You can adjust the minimum query length
+        return Ok(HttpResponse::Ok().json(SearchResults { results: vec![] }));
+    }
+
+    // Construct the search query using the Meilisearch SDK builder pattern
     let search_results: meilisearch_sdk::search::SearchResults<Movie> = client
         .index("movies")
         .search()
@@ -51,12 +56,10 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
 
     println!("Meilisearch search results: {:#?}", search_results);
 
-    //Convert Meilisearch results to your SearchResults struct
     let movies: Vec<Movie> = search_results
         .hits
         .iter()
         .map(|hit| -> Movie {
-            //Access the fields from your Meilisearch result, replace these with the actual field names
             Movie {
                 id: hit.result.id.clone(),
                 title: hit.result.title.clone(),
@@ -69,14 +72,13 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
 
     println!("Converted movies: {:#?}", movies);
 
-    //Create a SearchResults instance
     let search_results = SearchResults { results: movies };
 
     println!("Returning search results as JSON: {:#?}", search_results);
 
-    //Return search results as JSON
     Ok(HttpResponse::Ok().json(search_results))
 }
+
 
 //This function serves the main webpage. Like the search function, each time it is called, the main
 // function will spawn a new disconnected thread.

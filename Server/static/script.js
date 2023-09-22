@@ -1,13 +1,30 @@
-// Add an event listener to the button
-document.querySelector('button').addEventListener('click', () => {
+// script.js
+
+// Add an event listener to the input field to handle Enter key press
+document.querySelector('#searchQuery').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        performSearch();
+    }
+});
+
+// Add an event listener to the button to trigger the search
+document.querySelector('#searchButton').addEventListener('click', performSearch);
+
+function performSearch() {
     const searchQuery = document.querySelector('#searchQuery').value;
     const resultsContainer = document.querySelector('#results');
+    const loadingIndicator = document.createElement('p');
+    loadingIndicator.textContent = 'Searching...';
+
+    // Display the loading indicator
+    resultsContainer.innerHTML = '';
+    resultsContainer.appendChild(loadingIndicator);
 
     // Send a GET request to your Actix backend
     fetch(`/search?q=${encodeURIComponent(searchQuery)}`)
         .then((response) => response.json())
         .then((data) => {
-            resultsContainer.innerHTML = ''; // Clear previous results
+            resultsContainer.innerHTML = ''; // Clear the loading indicator
 
             // Loop through the results and create HTML elements to display each movie
             data.results.forEach((movie) => {
@@ -43,4 +60,4 @@ document.querySelector('button').addEventListener('click', () => {
             console.error('Error:', error);
             resultsContainer.innerHTML = 'An error occurred.';
         });
-});
+}
