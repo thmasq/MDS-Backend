@@ -1,14 +1,12 @@
-// script.js
-
-// Add an event listener to the input field to handle Enter key press
-document.querySelector('#searchQuery').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        performSearch();
-    }
+// Add an event listener to the input field to handle user input
+document.querySelector('#searchQuery').addEventListener('input', () => {
+    // Delay the search by a short time to allow the user to finish typing
+    clearTimeout(timeout);
+    timeout = setTimeout(performSearch, 300); // Adjust the delay time as needed
 });
 
-// Add an event listener to the button to trigger the search
-document.querySelector('#searchButton').addEventListener('click', performSearch);
+// Initialize a timeout variable
+let timeout;
 
 function performSearch() {
     const searchQuery = document.querySelector('#searchQuery').value;
