@@ -1,9 +1,11 @@
-use fancy_regex::Regex;
-use pdf_extract::extract_text;
+use std::io;
+use std::fs;
+use std::path::Path;
 use serde_json::json;
 use std::error::Error;
-use std::path::Path;
-use std::{fs, io};
+use fancy_regex::Regex;
+use pdf_extract::extract_text;
+use std::collections::HashSet;
 
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders = ["in", "out", "old"];
@@ -31,6 +33,7 @@ fn create_folders_if_not_exist() -> Result<(), io::Error> {
 fn return_parameters(
     text: &str,
     keywords: &[&str],
+    existing_titles: &HashSet<String>,
 ) -> Result<(Option<String>, String, Option<i64>), pdf_extract::OutputError> {
     let formatted_text = format_text(&text);
 
@@ -47,6 +50,14 @@ fn return_parameters(
         }
         if found_title.is_some() && found_date.is_some() {
             break; // Stop searching once both title and date are found
+        }
+    }
+
+    if let Some(ref title) = found_title {
+        if existing_titles.contains(title) {
+            println!("Warning: Duplicate entry with title '{}'", title);
+            found_title = None;
+            found_date = None;
         }
     }
 
@@ -90,15 +101,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_folder = Path::new("out");
     let old_folder = Path::new("old");
 
+    let mut existing_titles = HashSet::new();
+
+    let mut entries = Vec::new();
+
     for entry in fs::read_dir(in_folder)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() && path.extension().map_or(false, |ext| ext == "pdf") {
             let text = extract_text(&path)?;
-            match return_parameters(&text, &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"]) {
+            match return_parameters(&text, &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"], &existing_titles) {
                 Ok((title, formatted_text, date)) => {
                     if let Some(ref title_str) = title {
                         println!("Title found: {}", title_str);
+                        existing_titles.insert(title_str.clone());
                     } else {
                         println!("No title found");
                     }
@@ -109,28 +125,34 @@ fn main() -> Result<(), Box<dyn Error>> {
                         println!("No date found");
                     }
 
-                    // Create a JSON file with the same name as the PDF in the 'out' folder
-                    let json_file_name = path.with_extension("json");
-                    let json_path = out_folder.join(json_file_name.file_name().unwrap());
-
-                    let json_data = json!({
+                    let json_entry = json!({
                         "title": title,
                         "date": date,
                         "content": formatted_text,
+                        "old_file_name": path.file_name().unwrap().to_string_lossy().into_owned(),
                     });
 
-                    let json_str = serde_json::to_string_pretty(&json_data)?;
+                    entries.push(json_entry);
 
-                    fs::write(&json_path, json_str)?;
                     // Move the PDF to the 'old' folder
                     let old_path = old_folder.join(path.file_name().unwrap());
                     fs::rename(&path, old_path)?;
-                },
+                }
                 Err(err) => {
                     eprintln!("Error: {:?}", err);
-                },
+                }
             }
         }
     }
+
+    let json_data = json!({
+        "entries": entries,
+    });
+
+    let json_str = serde_json::to_string_pretty(&json_data)?;
+
+    let json_path = out_folder.join("entries.json");
+    fs::write(&json_path, json_str)?;
+
     Ok(())
 }
