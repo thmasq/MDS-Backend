@@ -84,11 +84,11 @@ fn format_text(input: &str) -> String {
 
     input.lines().for_each(|line| {
         // Remove spaces between characters
-        let re: Regex = Regex::new(r"(?<=\S)\s(?=\S)").unwrap();
+        let re: Regex = Regex::new(r"(?<=\S)\s(?=\S)").expect("Invalid Lookaround Regular Expression.");
         let line_without_spaces: String = re.replace_all(line, "").to_string();
 
         // Replace 2 or more spaces with a single space
-        let re2: Regex = Regex::new(r"\s{2,}").unwrap();
+        let re2: Regex = Regex::new(r"\s{2,}").expect("Invalid Regular Expression for looking for repeated spaces.");
         let line_with_single_spaces: String = re2.replace_all(&line_without_spaces, " ").to_string();
 
         formatted_lines.push(line_with_single_spaces);
@@ -98,7 +98,7 @@ fn format_text(input: &str) -> String {
 }
 
 fn extract_date(line: &str) -> Option<i64> {
-    let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").unwrap();
+    let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").expect("Invalid Regular Expression for Date.");
     match re.captures(line) {
         Ok(Some(captures)) => {
             let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
@@ -163,27 +163,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                         },
                     );
 
-                    let title_hash = title.as_ref().map_or_else(
-                        || String::new(),
-                        |title| {
-                            let mut hasher = Sha256::new();
-                            hasher.update(title);
-                            format!("{:x}", hasher.finalize())
-                        },
-                    );
+                    let title_hash = title.as_ref().map_or_else(String::new, |title| {
+                        let mut hasher = Sha256::new();
+                        hasher.update(title);
+                        format!("{:x}", hasher.finalize())
+                    });
 
                     let entry = Entry {
                         id: title_hash,
                         title,
                         date,
                         content: formatted_text,
-                        old_file_name: path.file_name().unwrap().to_string_lossy().into_owned(),
+                        old_file_name: path
+                            .file_name()
+                            .expect("Couldn't get file name for entry.")
+                            .to_string_lossy()
+                            .into_owned(),
                     };
 
                     entries.push(entry);
 
                     // Move the PDF to the 'old' folder
-                    let old_path = old_folder.join(path.file_name().unwrap());
+                    let old_path =
+                        old_folder.join(path.file_name().expect("Couldn't find file name for move operation."));
                     fs::rename(&path, old_path)?;
                 },
                 Err(err) => {
