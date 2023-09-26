@@ -1,10 +1,9 @@
-use std::io;
-use std::fs;
-use std::path::Path;
-use serde_json::json;
-use std::error::Error;
 use fancy_regex::Regex;
 use pdf_extract::extract_text;
+use serde_json::json;
+use std::error::Error;
+use std::path::Path;
+use std::{fs, io};
 
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders = ["in", "out", "old"];
@@ -29,24 +28,29 @@ fn create_folders_if_not_exist() -> Result<(), io::Error> {
     Ok(())
 }
 
-fn return_parameters<P: AsRef<Path>>(
-    path: P,
+fn return_parameters(
+    text: &str,
     keywords: &[&str],
-) -> Result<(Option<String>, String), pdf_extract::OutputError> {
-    let text = extract_text(&path)?;
+) -> Result<(Option<String>, String, Option<i64>), pdf_extract::OutputError> {
     let formatted_text = format_text(&text);
 
     println!("Formatted PDF Contents:\n{}", formatted_text);
 
     let mut found_title = None;
+    let mut found_date = None;
     for line in formatted_text.lines() {
         if keywords.iter().any(|&keyword| line.contains(keyword)) {
             found_title = Some(line.to_string());
-            break; // Stop searching once the title is found
+        }
+        if let Some(date) = extract_date(&line) {
+            found_date = Some(date);
+        }
+        if found_title.is_some() && found_date.is_some() {
+            break; // Stop searching once both title and date are found
         }
     }
 
-    Ok((found_title, formatted_text))
+    Ok((found_title, formatted_text, found_date))
 }
 
 fn format_text(input: &str) -> String {
@@ -67,6 +71,19 @@ fn format_text(input: &str) -> String {
     formatted_lines.join("\n")
 }
 
+fn extract_date(line: &str) -> Option<i64> {
+    let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").unwrap();
+    if let Ok(Some(captures)) = re.captures(line) {
+        let day = captures.get(1)?.as_str().parse::<u32>().ok()?;
+        let month = captures.get(2)?.as_str().parse::<u32>().ok()?;
+        let year = captures.get(3)?.as_str().parse::<i32>().ok()?;
+        let date = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
+        Some(date.and_hms_opt(0, 0, 0)?.timestamp())
+    } else {
+        None
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     create_folders_if_not_exist()?;
     let in_folder = Path::new("in");
@@ -77,12 +94,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         let entry = entry?;
         let path = entry.path();
         if path.is_file() && path.extension().map_or(false, |ext| ext == "pdf") {
-            match return_parameters(&path, &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"]) {
-                Ok((title, formatted_text)) => {
+            let text = extract_text(&path)?;
+            match return_parameters(&text, &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"]) {
+                Ok((title, formatted_text, date)) => {
                     if let Some(ref title_str) = title {
                         println!("Title found: {}", title_str);
                     } else {
                         println!("No title found");
+                    }
+
+                    if let Some(date) = date {
+                        println!("Date found: {}", date);
+                    } else {
+                        println!("No date found");
                     }
 
                     // Create a JSON file with the same name as the PDF in the 'out' folder
@@ -91,6 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     let json_data = json!({
                         "title": title,
+                        "date": date,
                         "content": formatted_text,
                     });
 
@@ -100,10 +125,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     // Move the PDF to the 'old' folder
                     let old_path = old_folder.join(path.file_name().unwrap());
                     fs::rename(&path, old_path)?;
-                }
+                },
                 Err(err) => {
                     eprintln!("Error: {:?}", err);
-                }
+                },
             }
         }
     }
