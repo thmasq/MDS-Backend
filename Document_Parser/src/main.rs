@@ -1,12 +1,11 @@
-use std::io;
-use std::fs;
-use std::path::Path;
-use std::error::Error;
 use fancy_regex::Regex;
 use pdf_extract::extract_text;
+use serde_derive::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-use serde_derive::{Serialize, Deserialize};
-use sha2::{Sha256, Digest};
+use std::error::Error;
+use std::path::Path;
+use std::{fs, io};
 
 #[derive(Serialize, Deserialize)]
 struct Entry {
@@ -21,7 +20,6 @@ struct Entry {
 struct Data {
     entries: Vec<Entry>,
 }
-
 
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders: [&str; 3] = ["in", "out", "old"];
@@ -46,6 +44,7 @@ fn create_folders_if_not_exist() -> Result<(), io::Error> {
     Ok(())
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn return_parameters(
     text: &str,
     keywords: &[&str],
@@ -107,7 +106,7 @@ fn extract_date(line: &str) -> Option<i64> {
             let year: i32 = captures.get(3)?.as_str().parse::<i32>().ok()?;
             let date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
             Some(date.and_hms_opt(0, 0, 0)?.timestamp())
-        }
+        },
         _ => None,
     }
 }
@@ -139,29 +138,39 @@ fn main() -> Result<(), Box<dyn Error>> {
         let path = entry.path();
         if path.is_file() && path.extension().map_or(false, |ext| ext == "pdf") {
             let text = extract_text(&path)?;
-            match return_parameters(&text, &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"], &existing_titles) {
+            match return_parameters(
+                &text,
+                &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"],
+                &existing_titles,
+            ) {
                 Ok((title, formatted_text, date)) => {
-                    if let Some(ref title_str) = title {
-                        println!("Title found: {title_str}");
-                        existing_titles.insert(title_str.clone());
-                    } else {
-                        println!("No title found");
-                    }
+                    title.as_ref().map_or_else(
+                        || {
+                            println!("No title found");
+                        },
+                        |title_str| {
+                            println!("Title found: {title_str}");
+                            existing_titles.insert(title_str.clone());
+                        },
+                    );
 
-                    if let Some(date) = date {
-                        println!("Date found: {date}");
-                    } else {
-                        println!("No date found");
-                    }
+                    date.map_or_else(
+                        || {
+                            println!("No date found");
+                        },
+                        |date| {
+                            println!("Date found: {date}");
+                        },
+                    );
 
-                    let title_hash = match &title {
-                        Some(title) => {
+                    let title_hash = title.as_ref().map_or_else(
+                        || String::new(),
+                        |title| {
                             let mut hasher = Sha256::new();
                             hasher.update(title);
                             format!("{:x}", hasher.finalize())
                         },
-                        None => String::new(),
-                    };                    
+                    );
 
                     let entry = Entry {
                         id: title_hash,
@@ -169,17 +178,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                         date,
                         content: formatted_text,
                         old_file_name: path.file_name().unwrap().to_string_lossy().into_owned(),
-                    };                    
+                    };
 
                     entries.push(entry);
 
                     // Move the PDF to the 'old' folder
                     let old_path = old_folder.join(path.file_name().unwrap());
                     fs::rename(&path, old_path)?;
-                }
+                },
                 Err(err) => {
                     eprintln!("Error: {err:?}");
-                }
+                },
             }
         }
     }
