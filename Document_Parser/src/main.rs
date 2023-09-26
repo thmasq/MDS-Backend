@@ -1,11 +1,27 @@
 use std::io;
 use std::fs;
 use std::path::Path;
-use serde_json::json;
 use std::error::Error;
 use fancy_regex::Regex;
 use pdf_extract::extract_text;
 use std::collections::HashSet;
+use serde_derive::{Serialize, Deserialize};
+use sha2::{Sha256, Digest};
+
+#[derive(Serialize, Deserialize)]
+struct Entry {
+    id: String,
+    title: Option<String>,
+    date: Option<i64>,
+    content: String,
+    old_file_name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Data {
+    entries: Vec<Entry>,
+}
+
 
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders = ["in", "out", "old"];
@@ -125,14 +141,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                         println!("No date found");
                     }
 
-                    let json_entry = json!({
-                        "title": title,
-                        "date": date,
-                        "content": formatted_text,
-                        "old_file_name": path.file_name().unwrap().to_string_lossy().into_owned(),
-                    });
+                    let title_hash = match &title {
+                        Some(title) => {
+                            let mut hasher = Sha256::new();
+                            hasher.update(title);
+                            format!("{:x}", hasher.finalize())
+                        },
+                        None => String::new(),
+                    };                    
 
-                    entries.push(json_entry);
+                    let entry = Entry {
+                        id: title_hash,
+                        title: title,
+                        date: date,
+                        content: formatted_text,
+                        old_file_name: path.file_name().unwrap().to_string_lossy().into_owned(),
+                    };                    
+
+                    entries.push(entry);
 
                     // Move the PDF to the 'old' folder
                     let old_path = old_folder.join(path.file_name().unwrap());
@@ -145,11 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let json_data = json!({
-        "entries": entries,
-    });
-
-    let json_str = serde_json::to_string_pretty(&json_data)?;
+    let json_str = serde_json::to_string_pretty(&entries)?;
 
     let json_path = out_folder.join("entries.json");
     fs::write(&json_path, json_str)?;
