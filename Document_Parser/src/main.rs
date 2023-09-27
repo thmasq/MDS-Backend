@@ -125,6 +125,20 @@ fn extract_date(line: &str) -> Option<i64> {
     }
 }
 
+fn get_link(path: &Path) -> String {
+    if let Some(filename) = path.file_name() {
+        if let Some(filename_str) = filename.to_str() {
+            let parts: Vec<&str> = filename_str.split('_').collect();
+            if parts.len() == 2 {
+                let id = parts[0];
+                let key = parts[1];
+                return format!("https://sig.unb.br/sigrh/downloadArquivo?idArquivo={}&key={}", id, key);
+            }
+        }
+    }
+    panic!("Invalid filename format or path: {:?}", path);
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     create_folders_if_not_exist()?;
     let in_folder = Path::new("in");
@@ -188,11 +202,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         title,
                         date,
                         content: formatted_text,
-                        old_file_name: path
-                            .file_name()
-                            .expect("Couldn't get file name for entry.")
-                            .to_string_lossy()
-                            .into_owned(),
+                        old_file_name: get_link(&path)
                     };
 
                     entries.push(entry);
