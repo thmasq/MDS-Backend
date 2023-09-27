@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
+use std::result::Result;
 use std::{fs, io};
 
 #[derive(Serialize, Deserialize)]
@@ -13,7 +14,7 @@ struct Entry {
     title: Option<String>,
     date: Option<i64>,
     content: String,
-    old_file_name: String,
+    link: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -73,9 +74,6 @@ fn return_parameters(
     existing_titles: &HashSet<String>,
 ) -> Result<(Option<String>, String, Option<i64>), pdf_extract::OutputError> {
     let formatted_text: String = format_text(text);
-
-    println!("Formatted PDF Contents:\n{formatted_text}");
-
     let found_title = return_title(&formatted_text, keywords);
     let found_date = return_date(&formatted_text);
 
@@ -125,18 +123,23 @@ fn extract_date(line: &str) -> Option<i64> {
     }
 }
 
-fn get_link(path: &Path) -> String {
-    if let Some(filename) = path.file_name() {
-        if let Some(filename_str) = filename.to_str() {
+fn get_link(path: &Path) -> Result<String, Box<dyn Error>> {
+    path.file_name()
+        .and_then(|filename| filename.to_str())
+        .and_then(|filename_str| {
             let parts: Vec<&str> = filename_str.split('_').collect();
             if parts.len() == 2 {
                 let id = parts[0];
                 let key = parts[1];
-                return format!("https://sig.unb.br/sigrh/downloadArquivo?idArquivo={id}&key={key}");
+                Some(Ok(format!(
+                    "https://sig.unb.br/sigrh/downloadArquivo?idArquivo={}&key={}",
+                    id, key
+                )))
+            } else {
+                None
             }
-        }
-    }
-    panic!("Invalid filename format or path: {path:?}");
+        })
+        .unwrap_or_else(|| Err(From::from(format!("Invalid filename format or path: {:?}", path))))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -172,15 +175,44 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &existing_titles,
             ) {
                 Ok((title, formatted_text, date)) => {
-                    title.as_ref().map_or_else(
-                        || {
-                            println!("No title found");
-                        },
-                        |title_str| {
-                            println!("Title found: {title_str}");
-                            existing_titles.insert(title_str.clone());
-                        },
-                    );
+                    if let Some(title_str) = title.as_ref() {
+                        println!("Title found: {title_str}");
+                        existing_titles.insert(title_str.clone());
+
+                        let title_hash = {
+                            let mut hasher = Sha256::new();
+                            hasher.update(title_str);
+                            format!("{:x}", hasher.finalize())
+                        };
+
+                        // Handle the result of get_link here
+                        let link = match get_link(&path) {
+                            Ok(link) => link,
+                            Err(err) => {
+                                eprintln!("Error generating link: {err:?}");
+                                continue; // Skip processing this entry and continue with the next one
+                            },
+                        };
+
+                        let entry = Entry {
+                            id: title_hash,
+                            title,
+                            date,
+                            content: formatted_text,
+                            link,
+                        };
+
+                        entries.push(entry);
+
+                        // Move the PDF to the 'old' folder
+                        let old_path =
+                            old_folder.join(path.file_name().expect("Couldn't find file name for move operation."));
+                        if let Err(err) = fs::rename(&path, &old_path) {
+                            eprintln!("Error moving file: {err:?}");
+                        }
+                    } else {
+                        println!("No title found");
+                    }
 
                     date.map_or_else(
                         || {
@@ -190,27 +222,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                             println!("Date found: {date}");
                         },
                     );
-
-                    let title_hash = title.as_ref().map_or_else(String::new, |title| {
-                        let mut hasher = Sha256::new();
-                        hasher.update(title);
-                        format!("{:x}", hasher.finalize())
-                    });
-
-                    let entry = Entry {
-                        id: title_hash,
-                        title,
-                        date,
-                        content: formatted_text,
-                        old_file_name: get_link(&path),
-                    };
-
-                    entries.push(entry);
-
-                    // Move the PDF to the 'old' folder
-                    let old_path =
-                        old_folder.join(path.file_name().expect("Couldn't find file name for move operation."));
-                    fs::rename(&path, old_path)?;
                 },
                 Err(err) => {
                     eprintln!("Error: {err:?}");
