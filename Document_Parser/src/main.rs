@@ -80,7 +80,7 @@ fn return_parameters(
     let found_date = return_date(&formatted_text);
 
     let mut result_title = found_title.clone();
-    let mut result_date = found_date.clone();
+    let mut result_date = found_date;
 
     if let Some(ref title) = found_title {
         if existing_titles.contains(title) {
