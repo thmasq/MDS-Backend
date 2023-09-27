@@ -132,11 +132,11 @@ fn get_link(path: &Path) -> String {
             if parts.len() == 2 {
                 let id = parts[0];
                 let key = parts[1];
-                return format!("https://sig.unb.br/sigrh/downloadArquivo?idArquivo={}&key={}", id, key);
+                return format!("https://sig.unb.br/sigrh/downloadArquivo?idArquivo={id}&key={key}");
             }
         }
     }
-    panic!("Invalid filename format or path: {:?}", path);
+    panic!("Invalid filename format or path: {path:?}");
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -202,7 +202,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         title,
                         date,
                         content: formatted_text,
-                        old_file_name: get_link(&path)
+                        old_file_name: get_link(&path),
                     };
 
                     entries.push(entry);
