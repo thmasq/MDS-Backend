@@ -44,6 +44,28 @@ fn create_folders_if_not_exist() -> Result<(), io::Error> {
     Ok(())
 }
 
+fn return_title(formatted_text: &str, keywords: &[&str]) -> Option<String> {
+    let mut found_title: Option<String> = None;
+    for line in formatted_text.lines() {
+        if keywords.iter().any(|&keyword| line.contains(keyword)) {
+            found_title = Some(line.to_string());
+            break; // Stop searching once the title is found
+        }
+    }
+    found_title
+}
+
+fn return_date(formatted_text: &str) -> Option<i64> {
+    let mut found_date: Option<i64> = None;
+    for line in formatted_text.lines() {
+        if let Some(date) = extract_date(line) {
+            found_date = Some(date);
+            break; // Stop searching once the date is found
+        }
+    }
+    found_date
+}
+
 #[allow(clippy::unnecessary_wraps)]
 fn return_parameters(
     text: &str,
@@ -54,29 +76,21 @@ fn return_parameters(
 
     println!("Formatted PDF Contents:\n{formatted_text}");
 
-    let mut found_title: Option<String> = None;
-    let mut found_date: Option<i64> = None;
-    for line in formatted_text.lines() {
-        if keywords.iter().any(|&keyword| line.contains(keyword)) {
-            found_title = Some(line.to_string());
-        }
-        if let Some(date) = extract_date(line) {
-            found_date = Some(date);
-        }
-        if found_title.is_some() && found_date.is_some() {
-            break; // Stop searching once both title and date are found
-        }
-    }
+    let found_title = return_title(&formatted_text, keywords);
+    let found_date = return_date(&formatted_text);
+
+    let mut result_title = found_title.clone();
+    let mut result_date = found_date.clone();
 
     if let Some(ref title) = found_title {
         if existing_titles.contains(title) {
             println!("Warning: Duplicate entry with title '{title}'");
-            found_title = None;
-            found_date = None;
+            result_title = None;
+            result_date = None;
         }
     }
 
-    Ok((found_title, formatted_text, found_date))
+    Ok((result_title, formatted_text, result_date))
 }
 
 fn format_text(input: &str) -> String {
