@@ -2,21 +2,40 @@ use scraper::{Html, Selector};
 use std::fs;
 
 fn main() {
-    let contents = fs::read("./1.html").expect("Something went wrong reading the file");
+    // Get the current directory
+    let current_dir = std::env::current_dir().expect("Failed to get current directory");
 
-    // Convert the bytes to a string, replacing invalid UTF-8 sequences with the lossy replacement
-    // character
-    let contents_string = String::from_utf8_lossy(&contents);
+    // Read the directory entries
+    let entries = fs::read_dir(current_dir).expect("Failed to read directory");
 
-    let html = Html::parse_document(&contents_string);
-
+    // Define the selector for 'a' elements
     let selector = Selector::parse("a").expect("Could not parse document");
 
-    for element in html.select(&selector) {
-        if let Some(href) = element.value().attr("href") {
-            if href.starts_with("https://sig.unb.br/sigrh/downloadArquivo?idArquivo=") {
-                println!("{}", href);
+    entries.into_iter().for_each(|entry| {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+
+            // Check if the entry is a file and has a .html extension
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "html") {
+                // Read the file contents
+                let contents = fs::read(&path).expect("Failed to read file");
+
+                // Convert the bytes to a string, replacing invalid UTF-8 sequences with the lossy replacement
+                // character
+                let contents_string = String::from_utf8_lossy(&contents);
+
+                // Parse the HTML
+                let html = Html::parse_document(&contents_string);
+
+                // Iterate through 'a' elements and filter by the desired criteria
+                html.select(&selector).for_each(|element| {
+                    if let Some(href) = element.value().attr("href") {
+                        if href.starts_with("https://sig.unb.br/sigrh/downloadArquivo?idArquivo=") {
+                            println!("{}", href);
+                        }
+                    }
+                });
             }
         }
-    }
+    });
 }
