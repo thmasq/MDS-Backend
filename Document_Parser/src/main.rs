@@ -124,22 +124,23 @@ fn extract_date(line: &str) -> Option<i64> {
 }
 
 fn get_link(path: &Path) -> Result<String, Box<dyn Error>> {
-    path.file_name()
-        .and_then(|filename| filename.to_str())
-        .and_then(|filename_str| {
-            let parts: Vec<&str> = filename_str.split('_').collect();
+    Option::map(
+        Option::and_then(path.file_stem(), |stem| stem.to_str()),
+        |stem_str| -> Result<String, Box<dyn Error>> {
+            let parts: Vec<&str> = stem_str.split('_').collect();
             if parts.len() == 2 {
                 let id = parts[0];
                 let key = parts[1];
-                Some(Ok(format!(
+                Ok(format!(
                     "https://sig.unb.br/sigrh/downloadArquivo?idArquivo={}&key={}",
                     id, key
-                )))
+                ))
             } else {
-                None
+                Err(Box::from(format!("Invalid filename format or path: {:?}", path)))
             }
-        })
-        .unwrap_or_else(|| Err(From::from(format!("Invalid filename format or path: {:?}", path))))
+        },
+    )
+    .unwrap_or_else(|| Err(Box::from(format!("Invalid filename format or path: {:?}", path))))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
