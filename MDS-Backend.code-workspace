@@ -6,7 +6,7 @@
 	],
 	"settings": {
 		"rust-analyzer.linkedProjects": [
-			"./Scraper/Cargo.toml"
+			"./WebScraper/Cargo.toml"
 		]
 	}
 }
