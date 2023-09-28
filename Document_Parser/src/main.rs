@@ -72,23 +72,25 @@ fn return_parameters(
     text: &str,
     keywords: &[&str],
     existing_titles: &HashSet<String>,
-) -> Result<(Option<String>, String, Option<i64>), pdf_extract::OutputError> {
+) -> Result<(Option<String>, String, Option<i64>, bool), pdf_extract::OutputError> {
     let formatted_text: String = format_text(text);
     let found_title = return_title(&formatted_text, keywords);
     let found_date = return_date(&formatted_text);
 
-    let mut result_title = found_title.clone();
-    let mut result_date = found_date;
+    let mut result_title: Option<String> = found_title.clone();
+    let mut result_date: Option<i64> = found_date;
+    let mut is_duplicate: bool = false;
 
     if let Some(ref title) = found_title {
         if existing_titles.contains(title) {
             println!("Warning: Duplicate entry with title '{title}'");
             result_title = None;
             result_date = None;
+            is_duplicate = true;
         }
     }
 
-    Ok((result_title, formatted_text, result_date))
+    Ok((result_title, formatted_text, result_date, is_duplicate))
 }
 
 fn format_text(input: &str) -> String {
@@ -175,7 +177,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"],
                 &existing_titles,
             ) {
-                Ok((title, formatted_text, date)) => {
+                Ok((title, formatted_text, date, is_duplicate)) => {
                     if let Some(title_str) = title.as_ref() {
                         println!("Title found: {title_str}");
                         existing_titles.insert(title_str.clone());
@@ -211,18 +213,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                         if let Err(err) = fs::rename(&path, &old_path) {
                             eprintln!("Error moving file: {err:?}");
                         }
-                    } else {
+                    } else if !is_duplicate {
                         println!("No title found");
                     }
 
-                    date.map_or_else(
-                        || {
-                            println!("No date found");
-                        },
-                        |date| {
-                            println!("Date found: {date}");
-                        },
-                    );
+                    if !is_duplicate {
+                        date.map_or_else(
+                            || {
+                                println!("No date found");
+                            },
+                            |date| {
+                                println!("Date found: {date}");
+                            },
+                        );
+                    }
                 },
                 Err(err) => {
                     eprintln!("Error: {err:?}");
