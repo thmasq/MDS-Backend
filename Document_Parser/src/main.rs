@@ -73,7 +73,11 @@ fn return_parameters(
     keywords: &[&str],
     existing_titles: &HashSet<String>,
 ) -> Result<(Option<String>, String, Option<i64>, bool), pdf_extract::OutputError> {
-    let formatted_text: String = format_text(text);
+    // Convert input text to UTF-8 bytes
+    let utf8_bytes = text.as_bytes();
+
+    // Call format_text with UTF-8 bytes
+    let formatted_text: String = format_text(utf8_bytes);
     let found_title = return_title(&formatted_text, keywords);
     let found_date = return_date(&formatted_text);
 
@@ -93,10 +97,13 @@ fn return_parameters(
     Ok((result_title, formatted_text, result_date, is_duplicate))
 }
 
-fn format_text(input: &str) -> String {
+fn format_text(input: &[u8]) -> String {
     let mut formatted_lines: Vec<String> = Vec::new();
 
-    input.lines().for_each(|line| {
+    // Convert the UTF-8 bytes to a &str
+    let input_str = std::str::from_utf8(input).expect("Invalid UTF-8");
+
+    input_str.lines().for_each(|line| {
         // Remove spaces between characters
         let re: Regex = Regex::new(r"(?<=\S)\s(?=\S)").expect("Invalid Lookaround Regular Expression.");
         let line_without_spaces: String = re.replace_all(line, "").to_string();
@@ -110,6 +117,7 @@ fn format_text(input: &str) -> String {
 
     formatted_lines.join("\n")
 }
+
 
 fn extract_date(line: &str) -> Option<i64> {
     let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").expect("Invalid Regular Expression for Date.");
@@ -174,7 +182,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let text = extract_text(&path)?;
             match return_parameters(
                 &text,
-                &["RESOLUÇÃO", "R E S O L U Ç Ã O", "Header", "Main Title"],
+                &["RESOLUÇÃO", "Cronograma", "Calendário", "Calendario"],
                 &existing_titles,
             ) {
                 Ok((title, formatted_text, date, is_duplicate)) => {
