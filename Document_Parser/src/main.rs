@@ -58,14 +58,12 @@ fn return_title(formatted_text: &str, keywords: &[&str]) -> Option<String> {
 }
 
 fn return_date(formatted_text: &str) -> Option<i64> {
-    let mut found_date: Option<i64> = None;
     for line in formatted_text.lines() {
         if let Some(date) = extract_date(line) {
-            found_date = Some(date);
-            break; // Stop searching once the date is found
+            return Some(date);
         }
     }
-    found_date
+    None
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -94,31 +92,34 @@ fn return_parameters(
 }
 
 fn extract_date(line: &str) -> Option<i64> {
-    let re = Regex::new(r"(\d{2}/\d{2}/\d{4}|\d{2}/\d{2}/\d{2})").expect("Invalid Regular Expression for Date.");
-    match re.captures(line) {
-        Ok(Some(captures)) => {
-            let date_str = captures.get(0)?.as_str();
-            let mut parts = date_str.split('/');
+    let re = Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{2,4})").expect("Invalid Regular Expression for Date.");
+    let captures = re.captures(line);
 
-            let day: u32 = parts.next()?.parse::<u32>().ok()?;
-            let month: u32 = parts.next()?.parse::<u32>().ok()?;
-            let year_str = parts.next()?.to_string();
+    if let Ok(Some(captures)) = captures {
+        let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
+        let month: u32 = captures.get(2)?.as_str().parse::<u32>().ok()?;
+        let year_str = captures.get(3)?.as_str();
 
-            // Convert year to 4-digit format if it's 2-digit
-            let year_2digits: i32 = year_str.parse::<i32>().ok()?;
-            let current_year = chrono::Utc::now().year();
-            let century = if year_2digits <= (current_year % 100) {
-                current_year - (current_year % 100)
+        // Determine the year format (2 or 4 digits)
+        let year: i32 = if year_str.len() == 2 {
+            let current_year = chrono::Local::now().year() % 100; // Get the current two-digit year
+            let year: i32 = year_str.parse::<i32>().ok()?;
+            if year <= current_year {
+                // If the year is less than or equal to the current two-digit year, assume it's in the current
+                // century
+                2000 + year
             } else {
-                current_year - (current_year % 100) - 100
-            };
-            let year = century + year_2digits;
+                // Otherwise, assume it's in the previous century
+                1900 + year
+            }
+        } else {
+            year_str.parse::<i32>().ok()?
+        };
 
-            let date_time = chrono::NaiveDate::from_ymd_opt(year, month, day)?.and_hms_opt(0, 0, 0);
-
-            date_time.map(|dt| dt.timestamp())
-        },
-        _ => None,
+        let date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
+        Some(date.and_hms_opt(0, 0, 0)?.timestamp())
+    } else {
+        None
     }
 }
 
