@@ -1,10 +1,10 @@
 use fancy_regex::Regex;
-use pdf_extract::extract_text;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
+use std::process::Command;
 use std::result::Result;
 use std::{fs, io};
 
@@ -73,13 +73,8 @@ fn return_parameters(
     keywords: &[&str],
     existing_titles: &HashSet<String>,
 ) -> Result<(Option<String>, String, Option<i64>, bool), pdf_extract::OutputError> {
-    // Convert input text to UTF-8 bytes
-    let utf8_bytes = text.as_bytes();
-
-    // Call format_text with UTF-8 bytes
-    let formatted_text: String = format_text(utf8_bytes);
-    let found_title = return_title(&formatted_text, keywords);
-    let found_date = return_date(&formatted_text);
+    let found_title = return_title(text, keywords);
+    let found_date = return_date(text);
 
     let mut result_title: Option<String> = found_title.clone();
     let mut result_date: Option<i64> = found_date;
@@ -94,30 +89,8 @@ fn return_parameters(
         }
     }
 
-    Ok((result_title, formatted_text, result_date, is_duplicate))
+    Ok((result_title, text.to_string(), result_date, is_duplicate))
 }
-
-fn format_text(input: &[u8]) -> String {
-    let mut formatted_lines: Vec<String> = Vec::new();
-
-    // Convert the UTF-8 bytes to a &str
-    let input_str = std::str::from_utf8(input).expect("Invalid UTF-8");
-
-    input_str.lines().for_each(|line| {
-        // Remove spaces between characters
-        let re: Regex = Regex::new(r"(?<=\S)\s(?=\S)").expect("Invalid Lookaround Regular Expression.");
-        let line_without_spaces: String = re.replace_all(line, "").to_string();
-
-        // Replace 2 or more spaces with a single space
-        let re2: Regex = Regex::new(r"\s{2,}").expect("Invalid Regular Expression for looking for repeated spaces.");
-        let line_with_single_spaces: String = re2.replace_all(&line_without_spaces, " ").to_string();
-
-        formatted_lines.push(line_with_single_spaces);
-    });
-
-    formatted_lines.join("\n")
-}
-
 
 fn extract_date(line: &str) -> Option<i64> {
     let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").expect("Invalid Regular Expression for Date.");
@@ -142,15 +115,29 @@ fn get_link(path: &Path) -> Result<String, Box<dyn Error>> {
                 let id = parts[0];
                 let key = parts[1];
                 Ok(format!(
-                    "https://sig.unb.br/sigrh/downloadArquivo?idArquivo={}&key={}",
-                    id, key
+                    "https://sig.unb.br/sigrh/downloadArquivo?idArquivo={id}&key={key}"
                 ))
             } else {
-                Err(Box::from(format!("Invalid filename format or path: {:?}", path)))
+                Err(Box::from(format!("Invalid filename format or path: {path:?}")))
             }
         },
     )
-    .unwrap_or_else(|| Err(Box::from(format!("Invalid filename format or path: {:?}", path))))
+    .unwrap_or_else(|| Err(Box::from(format!("Invalid filename format or path: {path:?}"))))
+}
+
+fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
+    let output = Command::new("pdftotext")
+        .arg("-q") // Suppress output to stderr
+        .arg(path)
+        .arg("-") // Extract to stdout
+        .output()?;
+
+    if output.status.success() {
+        let text = String::from_utf8_lossy(&output.stdout);
+        Ok(text.into_owned())
+    } else {
+        Err("pdftotext command failed".into())
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
