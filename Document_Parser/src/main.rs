@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use fancy_regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -93,14 +94,29 @@ fn return_parameters(
 }
 
 fn extract_date(line: &str) -> Option<i64> {
-    let re = Regex::new(r"(\d{2})/(\d{2})/(\d{4})").expect("Invalid Regular Expression for Date.");
+    let re = Regex::new(r"(\d{2}/\d{2}/\d{4}|\d{2}/\d{2}/\d{2})").expect("Invalid Regular Expression for Date.");
     match re.captures(line) {
         Ok(Some(captures)) => {
-            let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
-            let month: u32 = captures.get(2)?.as_str().parse::<u32>().ok()?;
-            let year: i32 = captures.get(3)?.as_str().parse::<i32>().ok()?;
-            let date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
-            Some(date.and_hms_opt(0, 0, 0)?.timestamp())
+            let date_str = captures.get(0)?.as_str();
+            let mut parts = date_str.split('/');
+
+            let day: u32 = parts.next()?.parse::<u32>().ok()?;
+            let month: u32 = parts.next()?.parse::<u32>().ok()?;
+            let year_str = parts.next()?.to_string();
+
+            // Convert year to 4-digit format if it's 2-digit
+            let year_2digits: i32 = year_str.parse::<i32>().ok()?;
+            let current_year = chrono::Utc::now().year();
+            let century = if year_2digits <= (current_year % 100) {
+                current_year - (current_year % 100)
+            } else {
+                current_year - (current_year % 100) - 100
+            };
+            let year = century + year_2digits;
+
+            let date_time = chrono::NaiveDate::from_ymd_opt(year, month, day)?.and_hms_opt(0, 0, 0);
+
+            date_time.map(|dt| dt.timestamp())
         },
         _ => None,
     }
