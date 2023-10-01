@@ -16,19 +16,19 @@ struct SearchQueryWrapper {
 // fields each object in the DB has Both the serialize and deserialize macros were used as the
 // Meilisearch SDK required Dese and Actix-web required Serialization to format the responses.
 #[derive(Serialize, Deserialize, Debug)]
-struct Movie {
-    id: i32,
+struct PDFdoc {
+    id: String,
     title: String,
-    poster: String,
-    overview: String,
-    release_date: i64,
+    date: i64,
+    content: String,
+    link: String,
 }
 
 //This struct wraps the relevant results in a neat way to be used to send responses more
 // efficiently.
 #[derive(Serialize, Debug)]
 struct SearchResults {
-    results: Vec<Movie>,
+    results: Vec<PDFdoc>,
 }
 
 // This function performs a Meilisearch query based on the provided query string and the Meilisearch
@@ -39,9 +39,9 @@ struct SearchResults {
 async fn query_meilisearch(
     query: &str,
     client: &Client,
-) -> Result<meilisearch_sdk::search::SearchResults<Movie>, Error> {
+) -> Result<meilisearch_sdk::search::SearchResults<PDFdoc>, Error> {
     let search_results = client
-        .index("movies")
+        .index("entries")
         .search()
         .with_query(query)
         .execute()
@@ -55,22 +55,22 @@ async fn query_meilisearch(
 }
 
 // This function transforms Meilisearch search results into a custom format suitable for the
-// response. It maps Meilisearch hits to a Vec<Movie> and constructs a SearchResults struct for JSON
+// response. It maps Meilisearch hits to a Vec<PDFdoc> and constructs a SearchResults struct for JSON
 // serialization.
-fn transform_results(search_results: meilisearch_sdk::search::SearchResults<Movie>) -> SearchResults {
-    let movies: Vec<Movie> = search_results
+fn transform_results(search_results: meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
+    let entries: Vec<PDFdoc> = search_results
         .hits
         .iter()
-        .map(|hit| Movie {
+        .map(|hit| PDFdoc {
             id: hit.result.id.clone(),
             title: hit.result.title.clone(),
-            poster: hit.result.poster.clone(),
-            overview: hit.result.overview.clone(),
-            release_date: hit.result.release_date.clone(),
+            date: hit.result.date.clone(),
+            content: hit.result.content.clone(),
+            link: hit.result.link.clone(),
         })
         .collect();
 
-    SearchResults { results: movies }
+    SearchResults { results: entries }
 }
 
 //This is the search function, avaliable at <website_address>/search. It listens for Json requests
