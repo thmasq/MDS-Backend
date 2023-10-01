@@ -81,7 +81,7 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
     println!("Received search request with query: {:#?}", query);
 
     // Trim the query to the first 200 characters
-    let trimmed_query = &query.q[..200];
+    let trimmed_query = if query.q.len() > 200 { &query.q[..200] } else { &query.q };
 
     if trimmed_query.len() < 3 {
         // You can adjust the minimum query length
