@@ -1,59 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Movie Search by Name</title>
+    <title>Document Search by Content</title>
     <style>
-        /* Define a flex container for the movie details */
+        /* Define a column container for the PDF details */
         #results {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between; /* Distribute items evenly */
+            column-count: 2;
+            column-gap: 40px;
         }
-
-        /* CSS styles for each movie details box */
-        .movie {
-            flex-basis: calc(33.33% - 20px); /* Three elements per row with margin */
-            margin: 10px;
+    
+        /* CSS styles for each PDF details box */
+        .entry {
+            display: inline-block;
+            width: calc(100% - 40px); /* Reduce the width of each entry */
+            margin-bottom: 20px;
             background-color: #f5f5f5;
             border: 1px solid #ddd;
             padding: 20px;
             border-radius: 5px;
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-            /* max-width: 400px; (Remove max-width to allow varying widths) */
+            break-inside: avoid;
         }
-
-        /* Style for the movie title */
-        .movie h2 {
+    
+        /* Style for the PDF title */
+        .entry h2 {
             font-size: 1.5rem;
             margin-bottom: 10px;
             color: #333;
         }
-
-        /* Style for the movie poster */
-        .movie img {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #ddd;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Style for the movie overview */
-        .movie p {
-            font-size: 1rem;
+    
+        /* Style for the PDF content */
+        .entry p {
+            font-size: 1.1rem;
             margin: 10px 0;
             color: #666;
         }
-
-        /* Style for the release date */
-        .movie p:last-child {
+    
+        /* Style for the PDF date */
+        .entry p:nth-child(2) {
             font-weight: bold;
             color: #333;
+        }
+    
+        /* Style for the PDF link */
+        .entry a {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+    
+        .entry a:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
-    <h1>Movie Search</h1>
-    <input type="text" id="searchQuery" placeholder="Enter a movie title">
+    <h1>Document Search</h1>
+    <input type="text" id="searchQuery" placeholder="Enter a keyword">
     <button id="searchButton">Search</button>    
     <div id="results"></div>
     <script src="/static/script.js"></script>

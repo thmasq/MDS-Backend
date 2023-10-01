@@ -24,34 +24,35 @@ function performSearch() {
         .then((data) => {
             resultsContainer.innerHTML = ''; // Clear the loading indicator
 
-            // Loop through the results and create HTML elements to display each movie
-            data.results.forEach((movie) => {
-                const movieElement = document.createElement('div');
-                movieElement.classList.add('movie');
+            // Loop through the results and create HTML elements to display each entry
+            data.results.forEach((entry) => {
+                const pdfElement = document.createElement('div');
+                pdfElement.classList.add('entry');
 
-                // Create elements for each field of the Movie struct
+                // Create elements for each field of the PDFdoc struct
                 const titleElement = document.createElement('h2');
-                titleElement.textContent = movie.title;
+                titleElement.textContent = entry.title;
 
-                const posterElement = document.createElement('img');
-                posterElement.src = movie.poster;
-
-                const overviewElement = document.createElement('p');
-                overviewElement.textContent = movie.overview;
-
-                const releaseDateElement = document.createElement('p');
-                releaseDateElement.textContent = `Release Date: ${new Date(
-                    movie.release_date * 1000
+                const dateElement = document.createElement('p');
+                dateElement.textContent = `Date: ${new Date(
+                    entry.date * 1000
                 ).toDateString()}`;
 
-                // Append elements to the movie container
-                movieElement.appendChild(titleElement);
-                movieElement.appendChild(posterElement);
-                movieElement.appendChild(overviewElement);
-                movieElement.appendChild(releaseDateElement);
+                const contentElement = document.createElement('p');
+                contentElement.textContent = entry.content;
 
-                // Append the movie container to the results container
-                resultsContainer.appendChild(movieElement);
+                const linkElement = document.createElement('a');
+                linkElement.href = entry.link;
+                linkElement.textContent = "View PDF";
+
+                // Append elements to the entry container
+                pdfElement.appendChild(titleElement);
+                pdfElement.appendChild(dateElement);
+                pdfElement.appendChild(contentElement);
+                pdfElement.appendChild(linkElement);
+
+                // Append the entry container to the results container
+                resultsContainer.appendChild(pdfElement);
             });
         })
         .catch((error) => {
