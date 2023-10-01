@@ -1,6 +1,7 @@
 use actix_files::{Files, NamedFile};
 use actix_web::{web, App, Error, HttpResponse, HttpServer};
 use meilisearch_sdk::client::Client;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -55,12 +56,12 @@ async fn query_meilisearch(
 }
 
 // This function transforms Meilisearch search results into a custom format suitable for the
-// response. It maps Meilisearch hits to a Vec<PDFdoc> and constructs a SearchResults struct for JSON
-// serialization.
+// response. It maps Meilisearch hits to a Vec<PDFdoc> and constructs a SearchResults struct for
+// JSON serialization.
 fn transform_results(search_results: meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
     let entries: Vec<PDFdoc> = search_results
         .hits
-        .iter()
+        .par_iter()
         .map(|hit| PDFdoc {
             id: hit.result.id.clone(),
             title: hit.result.title.clone(),
