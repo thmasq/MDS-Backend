@@ -115,14 +115,10 @@ async fn index() -> Result<NamedFile, Error> {
 // threads for this workload, which reduces atomics overhead.
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    //Configured logging for Actix-web, for debugging purposes only. Must be turned off later
-    std::env::set_var("RUST_LOG", "actix_web=debug");
+    let api_key = std::env::var("MEILISEARCH_API_KEY").expect("missing MEILISEARCH_API_KEY environment variable.");
 
     //Uses the SDK to connect to the Meilisearch server. For the prototype I hardcoded the API key
-    let meilisearch_client = Client::new(
-        "http://localhost:7700",
-        Some("OSepughN96MyXGm3wNqaDtCr_tJwzxusvWvkel22NU8"),
-    );
+    let meilisearch_client = Client::new("http://localhost:7700", Some(api_key));
 
     let meilisearch_client_data = web::Data::new(meilisearch_client.clone());
 
