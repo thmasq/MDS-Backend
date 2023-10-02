@@ -6,7 +6,7 @@
 	],
 	"settings": {
 		"rust-analyzer.linkedProjects": [
-			"./Server/Cargo.toml"
+			"Cargo.toml"
 		]
 	}
 }
