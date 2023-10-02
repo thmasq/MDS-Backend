@@ -5,17 +5,13 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-//It was necessary to wrap my query because actix receives it as a serialized JSON file, which
-// needs to be deserialized to be worked with. The debug macro was used for the code to be able to
-// pretty print the requests for diagnosing and experimentation.
+/// Wrapper for the search query.
 #[derive(Deserialize, Debug)]
 struct SearchQueryWrapper {
     q: String,
 }
 
-//Meilisearch doesn't really have a schema like other Databases, but this struct organizes the
-// fields each object in the DB has Both the serialize and deserialize macros were used as the
-// Meilisearch SDK required Dese and Actix-web required Serialization to format the responses.
+/// Represents the fields of each object in the database.
 #[derive(Serialize, Deserialize, Debug)]
 struct PDFdoc {
     id: String,
@@ -25,18 +21,14 @@ struct PDFdoc {
     link: String,
 }
 
-//This struct wraps the relevant results in a neat way to be used to send responses more
-// efficiently.
+/// Wrapper for the search results.
 #[derive(Serialize, Debug)]
 struct SearchResults {
     results: Vec<PDFdoc>,
 }
 
-// This function performs a Meilisearch query based on the provided query string and the Meilisearch
-// client. The function does not perform any query string trimming itself. The query string should
-// be trimmed before calling this function in order to avoid exceeding a certain length.
-// The function returns a Result containing Meilisearch search results or an internal server error
-// if the query fails.
+/// Performs a Meilisearch query based on the provided query string and the Meilisearch client.
+/// Returns Meilisearch search results or an internal server error if the query fails.
 async fn query_meilisearch(
     query: &str,
     client: &Client,
@@ -55,9 +47,7 @@ async fn query_meilisearch(
     Ok(search_results)
 }
 
-// This function transforms Meilisearch search results into a custom format suitable for the
-// response. It maps Meilisearch hits to a Vec<PDFdoc> and constructs a SearchResults struct for
-// JSON serialization.
+/// Transforms Meilisearch search results into a custom format suitable for the response.
 fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
     let entries: Vec<PDFdoc> = search_results
         .hits
@@ -74,9 +64,8 @@ fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDF
     SearchResults { results: entries }
 }
 
-//This is the search function, avaliable at <website_address>/search. It listens for Json requests
-// with a string and returns a response with a JSON file. This function is acyncronous, and the main
-// function will call this function as a factory, the threads are disconnected and non blocking.
+/// The main search function. Listens for JSON requests with a search query and returns a JSON
+/// response.
 async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>) -> Result<HttpResponse, Error> {
     println!("Received search request with query: {query:#?}");
 
@@ -101,18 +90,15 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
     Ok(HttpResponse::Ok().json(search_results))
 }
 
-//This function serves the main webpage. Like the search function, each time it is called, the main
-// function will spawn a new disconnected thread.
+/// Serves the main webpage.
 fn index() -> Result<NamedFile, Error> {
     let path: PathBuf = PathBuf::from("static/index.html");
     println!("Serving index.html from path: {path:?}");
     Ok(NamedFile::open(path)?)
 }
 
-//For the main function, the actix-rt macro is used to make it easy to scale the backend server. It
-// is basically a factory that spawns new disconnected threads for each function execution.
-// This behavior is desired because there really is no advantage of sharing any state between
-// threads for this workload, which reduces atomics overhead.
+/// The entry point of the program. Sets up the Actix-web server, connects to the Meilisearch
+/// server, and starts the server.
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     let api_key = std::env::var("MEILISEARCH_API_KEY").expect("missing MEILISEARCH_API_KEY environment variable.");
