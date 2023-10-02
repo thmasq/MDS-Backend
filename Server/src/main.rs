@@ -48,7 +48,7 @@ async fn query_meilisearch(
         .execute()
         .await
         .map_err(|e| {
-            eprintln!("Meilisearch Error: {:?}", e);
+            eprintln!("Meilisearch Error: {e:?}");
             actix_web::error::ErrorInternalServerError("Meilisearch query failed")
         })?;
 
@@ -58,14 +58,14 @@ async fn query_meilisearch(
 // This function transforms Meilisearch search results into a custom format suitable for the
 // response. It maps Meilisearch hits to a Vec<PDFdoc> and constructs a SearchResults struct for
 // JSON serialization.
-fn transform_results(search_results: meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
+fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
     let entries: Vec<PDFdoc> = search_results
         .hits
         .par_iter()
         .map(|hit| PDFdoc {
             id: hit.result.id.clone(),
             title: hit.result.title.clone(),
-            date: hit.result.date.clone(),
+            date: hit.result.date,
             content: hit.result.content.clone(),
             link: hit.result.link.clone(),
         })
@@ -78,7 +78,7 @@ fn transform_results(search_results: meilisearch_sdk::search::SearchResults<PDFd
 // with a string and returns a response with a JSON file. This function is acyncronous, and the main
 // function will call this function as a factory, the threads are disconnected and non blocking.
 async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>) -> Result<HttpResponse, Error> {
-    println!("Received search request with query: {:#?}", query);
+    println!("Received search request with query: {query:#?}");
 
     // Trim the query to the first 200 characters
     let trimmed_query = if query.q.len() > 200 { &query.q[..200] } else { &query.q };
@@ -91,21 +91,21 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
     // Query Meilisearch
     let search_results = query_meilisearch(trimmed_query, &client).await?;
 
-    println!("Meilisearch search results: {:#?}", search_results);
+    println!("Meilisearch search results: {search_results:#?}");
 
     // Transform results
-    let search_results = transform_results(search_results);
+    let search_results = transform_results(&search_results);
 
-    println!("Returning search results as JSON: {:#?}", search_results);
+    println!("Returning search results as JSON: {search_results:#?}");
 
     Ok(HttpResponse::Ok().json(search_results))
 }
 
 //This function serves the main webpage. Like the search function, each time it is called, the main
 // function will spawn a new disconnected thread.
-async fn index() -> Result<NamedFile, Error> {
-    let path: PathBuf = PathBuf::from("static/index.html"); //Must be replaced with the actual path to your HTML file
-    println!("Serving index.html from path: {:?}", path);
+fn index() -> Result<NamedFile, Error> {
+    let path: PathBuf = PathBuf::from("static/index.html");
+    println!("Serving index.html from path: {path:?}");
     Ok(NamedFile::open(path)?)
 }
 
@@ -127,7 +127,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(meilisearch_client_data.clone()) // Share the client across requests
             .service(web::resource("/search").to(search))
             .service(Files::new("/static", "static").show_files_listing())
-            .route("/", web::get().to(index))
+            .route("/", web::get().to(|| async { index() }))
             .default_service(web::route().to(HttpResponse::NotFound))
     });
 
