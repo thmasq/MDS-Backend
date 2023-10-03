@@ -315,8 +315,47 @@
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>chrono::Datelike;
-<span class="kw">use </span>fancy_regex::Regex;
+<span class="kw">use </span>lazy_regex::regex;
 <span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>std::collections::HashSet;
@@ -326,7 +365,8 @@
 <span class="kw">use </span>std::result::Result;
 <span class="kw">use </span>std::{fs, io};
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="doccomment">/// Represents each document entry, with macros to both read and write to a JSON file.
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">struct </span>Entry {
     id: String,
     title: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -335,12 +375,15 @@
     link: String,
 }
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="doccomment">/// Represents an array of document entries, with macros to both read and write to a JSON file.
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">struct </span>Data {
     entries: Vec&lt;Entry&gt;,
 }
 
-<span class="kw">fn </span>create_folders_if_not_exist() -&gt; <span class="prelude-ty">Result</span>&lt;(), io::Error&gt; {
+<span class="doccomment">/// On program startup checks for the existence of in, old and out folders, for ingesting, moving to
+/// and outputting results respectively.
+</span><span class="kw">fn </span>create_folders_if_not_exist() -&gt; <span class="prelude-ty">Result</span>&lt;(), io::Error&gt; {
     <span class="kw">let </span>folders: [<span class="kw-2">&amp;</span>str; <span class="number">3</span>] = [<span class="string">&quot;in&quot;</span>, <span class="string">&quot;out&quot;</span>, <span class="string">&quot;old&quot;</span>];
 
     <span class="kw">for </span>folder <span class="kw">in </span><span class="kw-2">&amp;</span>folders {
@@ -362,8 +405,10 @@
 
     <span class="prelude-val">Ok</span>(())
 }
-
-<span class="kw">fn </span>return_title(formatted_text: <span class="kw-2">&amp;</span>str, keywords: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<span class="doccomment">/// Receives a reference to a string with the formatted text and a reference to a vector with
+/// keywords, optionally returning a string with the title. This function looks for the title in
+/// each line and immediately returns upon finding it.
+</span><span class="kw">fn </span>return_title(formatted_text: <span class="kw-2">&amp;</span>str, keywords: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>found_title: <span class="prelude-ty">Option</span>&lt;String&gt; = <span class="prelude-val">None</span>;
     <span class="kw">for </span>line <span class="kw">in </span>formatted_text.lines() {
         <span class="kw">if </span>keywords.iter().any(|<span class="kw-2">&amp;</span>keyword| line.contains(keyword)) {
@@ -374,7 +419,11 @@
     found_title
 }
 
-<span class="kw">fn </span>return_date(formatted_text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
+<span class="doccomment">/// Receives a reference to a string with the formatted text, optionally returning a 64-bit integer
+/// with the date as Unix Epoch. This function looks for the date in each line and immediately
+/// returns upon finding it. First it searches for dates in the Brazilian format, and if it is not
+/// found, it looks for numerical dates.
+</span><span class="kw">fn </span>return_date(formatted_text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(date) = extract_portuguese_date(formatted_text) {
         <span class="kw">return </span><span class="prelude-val">Some</span>(date);
     }
@@ -388,12 +437,18 @@
     <span class="prelude-val">None
 </span>}
 
-<span class="attr">#[allow(clippy::unnecessary_wraps)]
+<span class="doccomment">/// Receives a string with the Extracted Text, a reference to a vector with Keywords and a reference
+/// to a Hash-Set of Already Processed Titles, optionally returning a Title string and a 64-bit
+/// integer with the Date as Unix Epoch. It is guaranteed to return a boolean that tells if a given
+/// entry is a duplicate. Upon finding a duplicate, this function will print a warning on the
+/// terminal output, and will return no date, no title and a True value for the is_duplicate
+/// boolean.
+</span><span class="attr">#[allow(clippy::unnecessary_wraps)]
 </span><span class="kw">fn </span>return_parameters(
     text: <span class="kw-2">&amp;</span>str,
     keywords: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
     existing_titles: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;String&gt;, String, <span class="prelude-ty">Option</span>&lt;i64&gt;, bool), pdf_extract::OutputError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;String&gt;, <span class="prelude-ty">Option</span>&lt;i64&gt;, bool), pdf_extract::OutputError&gt; {
     <span class="kw">let </span>found_title = return_title(text, keywords);
     <span class="kw">let </span>found_date = return_date(text);
 
@@ -410,12 +465,17 @@
         }
     }
 
-    <span class="prelude-val">Ok</span>((result_title, text.to_string(), result_date, is_duplicate))
+    <span class="prelude-val">Ok</span>((result_title, result_date, is_duplicate))
 }
 
-<span class="kw">fn </span>extract_portuguese_date(line: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
+<span class="doccomment">/// This function takes a reference to a Line of text and returns a 64-bit integer with Date as Unix
+/// Epoch. The regex engine looks for a case-insensitive match of a Portuguese Date format, i.e., “2
+/// de Outubro de 2023”. If the date is formatted with only the last two digits of a year, the
+/// function will decide in which century it is by fitting the date in the range of 1960 to 2059.
+</span><span class="kw">fn </span>extract_portuguese_date(line: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
     <span class="comment">// Define month names in Portuguese (case-insensitive)
-    </span><span class="kw">let </span>month_names = [<span class="string">&quot;janeiro&quot;</span>,
+    </span><span class="kw">let </span>month_names = [
+        <span class="string">&quot;janeiro&quot;</span>,
         <span class="string">&quot;fevereiro&quot;</span>,
         <span class="string">&quot;março&quot;</span>,
         <span class="string">&quot;abril&quot;</span>,
@@ -426,16 +486,15 @@
         <span class="string">&quot;setembro&quot;</span>,
         <span class="string">&quot;outubro&quot;</span>,
         <span class="string">&quot;novembro&quot;</span>,
-        <span class="string">&quot;dezembro&quot;</span>];
+        <span class="string">&quot;dezembro&quot;</span>,
+    ];
 
     <span class="comment">// Regular expression to match the Portuguese date format
-    </span><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})&quot;</span>)
-        .expect(<span class="string">&quot;Invalid Regular Expression for Portuguese Date.&quot;</span>);
+    </span><span class="kw">let </span>re = <span class="macro">regex!</span>(<span class="string">r&quot;(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})&quot;</span>);
 
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(captures)) = re.captures(line) {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(captures) = re.captures(line) {
         <span class="kw">let </span>day: u32 = captures.get(<span class="number">1</span>)<span class="question-mark">?</span>.as_str().parse::&lt;u32&gt;().ok()<span class="question-mark">?</span>;
         <span class="kw">let </span>month_str = captures.get(<span class="number">2</span>)<span class="question-mark">?</span>.as_str().to_lowercase();
-        <span class="kw">let </span>year_str = captures.get(<span class="number">3</span>)<span class="question-mark">?</span>.as_str();
 
         <span class="comment">// Convert the Portuguese month name to a numeric month
         </span><span class="kw">let </span>month: <span class="prelude-ty">Option</span>&lt;u32&gt; = month_names
@@ -444,21 +503,8 @@
             .and_then(|idx| idx.try_into().ok());
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(month) = month {
-            <span class="comment">// Determine the year format (2 or 4 digits)
-            </span><span class="kw">let </span>year: i32 = <span class="kw">if </span>year_str.len() == <span class="number">2 </span>{
-                <span class="kw">let </span>current_year = chrono::Local::now().year() % <span class="number">100</span>; <span class="comment">// Get the current two-digit year
-                </span><span class="kw">let </span>year: i32 = year_str.parse::&lt;i32&gt;().ok()<span class="question-mark">?</span>;
-                <span class="kw">if </span>year &lt;= current_year {
-                    <span class="comment">// If the year is less than or equal to the current two-digit year, assume it&#39;s in the current
-                    // century
-                    </span><span class="number">2000 </span>+ year
-                } <span class="kw">else </span>{
-                    <span class="comment">// Otherwise, assume it&#39;s in the previous century
-                    </span><span class="number">1900 </span>+ year
-                }
-            } <span class="kw">else </span>{
-                year_str.parse::&lt;i32&gt;().ok()<span class="question-mark">?
-            </span>};
+            <span class="comment">// Hardcode the year as 1960
+            </span><span class="kw">let </span>year: i32 = <span class="number">1960</span>;
 
             <span class="kw">let </span>date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)<span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Some</span>(date.and_hms_opt(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>)<span class="question-mark">?</span>.timestamp());
@@ -468,11 +514,14 @@
     <span class="prelude-val">None
 </span>}
 
-<span class="kw">fn </span>extract_date(line: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
-    <span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(\d{1,2})/(\d{1,2})/(\d{2,4})&quot;</span>).expect(<span class="string">&quot;Invalid Regular Expression for Date.&quot;</span>);
+<span class="doccomment">/// This function is run if [extract_portuguese_date] returns nothing. It takes a reference to a
+/// Line of text and returns a 64-bit integer with Date as Unix Epoch. The regex engine looks for
+/// any slash separated date, ranging from 4 digits up to 8, i.e., from 2/9/23 to 02/09/2023.
+</span><span class="kw">fn </span>extract_date(line: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt; {
+    <span class="kw">let </span>re = <span class="macro">regex!</span>(<span class="string">r&quot;(\d{1,2})/(\d{1,2})/(\d{2,4})&quot;</span>);
     <span class="kw">let </span>captures = re.captures(line);
 
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(captures)) = captures {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(captures) = captures {
         <span class="kw">let </span>day: u32 = captures.get(<span class="number">1</span>)<span class="question-mark">?</span>.as_str().parse::&lt;u32&gt;().ok()<span class="question-mark">?</span>;
         <span class="kw">let </span>month: u32 = captures.get(<span class="number">2</span>)<span class="question-mark">?</span>.as_str().parse::&lt;u32&gt;().ok()<span class="question-mark">?</span>;
         <span class="kw">let </span>year_str = captures.get(<span class="number">3</span>)<span class="question-mark">?</span>.as_str();
@@ -500,7 +549,12 @@
     <span class="prelude-val">None
 </span>}
 
-<span class="kw">fn </span>get_link(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+<span class="doccomment">/// This function takes a reference to the path of the file currently being evaluated and returns a
+/// result, which may be either a string, or a pointer to a heap allocated region containing the
+/// error. This is necessary because the error size cannot be known at compile time. Based on the
+/// file stem (the part that is not the extension), which must be formatted in a very particular
+/// way, this function generates a URL which can be used to download the PDF it is associated to.
+</span><span class="kw">fn </span>get_link(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     Option::map(
         Option::and_then(path.file_stem(), |stem| stem.to_str()),
         |stem_str| -&gt; <span class="prelude-ty">Result</span>&lt;String, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
@@ -519,7 +573,12 @@
     .unwrap_or_else(|| <span class="prelude-val">Err</span>(Box::from(<span class="macro">format!</span>(<span class="string">&quot;Invalid filename format or path: {path:?}&quot;</span>))))
 }
 
-<span class="kw">fn </span>extract_text(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+<span class="doccomment">/// This function takes a reference to the path of the file currently being evaluated and returns a
+/// result, which may be either a string, or a pointer to a heap allocated region containing the
+/// error. This is necessary because the error size cannot be known at compile time. The function
+/// calls Poppler&#39;s [pdftotext](https://manpages.debian.org/stretch/poppler-utils/pdftotext.1.en.html) with the path as
+/// an argument, and suppresses the output to stderr.
+</span><span class="kw">fn </span>extract_text(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;String, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     <span class="kw">let </span>output = Command::new(<span class="string">&quot;pdftotext&quot;</span>)
         .arg(<span class="string">&quot;-q&quot;</span>) <span class="comment">// Suppress output to stderr
         </span>.arg(path)
@@ -534,7 +593,26 @@
     }
 }
 
-<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+<span class="doccomment">/// The main entry point of the program.
+///
+/// This function is responsible for processing PDF files in the &#39;in&#39; folder, extracting relevant
+/// information, and updating an entries JSON file in the &#39;out&#39; folder. It performs the following
+/// steps:
+///
+/// 1. Creates necessary folders (&#39;in&#39;, &#39;out&#39;, &#39;old&#39;) if they do not exist.
+/// 2. Loads existing entries from &#39;entries.json&#39; in the &#39;out&#39; folder if it exists.
+/// 3. Iterates through PDF files in the &#39;in&#39; folder.
+/// 4. Extracts text content from each PDF file.
+/// 5. Identifies and processes valid entries, including title, date, and link generation.
+/// 6. Moves processed PDF files to the &#39;old&#39; folder.
+/// 7. Writes updated entry data to &#39;entries.json&#39; in the &#39;out&#39; folder.
+///
+/// # Errors
+///
+/// This function returns a `Result&lt;(), Box&lt;dyn Error&gt;&gt;` to handle potential errors during
+/// execution. Any error encountered during folder creation, file I/O, or JSON serialization
+/// will be wrapped in the `Err` variant.
+</span><span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
     create_folders_if_not_exist()<span class="question-mark">?</span>;
     <span class="kw">let </span>in_folder = Path::new(<span class="string">&quot;in&quot;</span>);
     <span class="kw">let </span>out_folder = Path::new(<span class="string">&quot;out&quot;</span>);
@@ -566,7 +644,7 @@
                 <span class="kw-2">&amp;</span>[<span class="string">&quot;RESOLUÇÃO&quot;</span>, <span class="string">&quot;Cronograma&quot;</span>, <span class="string">&quot;Calendário&quot;</span>, <span class="string">&quot;Calendario&quot;</span>],
                 <span class="kw-2">&amp;</span>existing_titles,
             ) {
-                <span class="prelude-val">Ok</span>((title, formatted_text, date, is_duplicate)) =&gt; {
+                <span class="prelude-val">Ok</span>((title, date, is_duplicate)) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(title_str) = title.as_ref() {
                         <span class="macro">println!</span>(<span class="string">&quot;Title found: {title_str}&quot;</span>);
                         existing_titles.insert(title_str.clone());
@@ -590,7 +668,7 @@
                             id: title_hash,
                             title,
                             date,
-                            content: formatted_text,
+                            content: text,
                             link,
                         };
 
