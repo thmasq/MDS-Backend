@@ -10,6 +10,8 @@ use std::fs;
 /// 2. Reads the directory entries.
 /// 3. Parses HTML files in the directory, looking for 'a' elements.
 /// 4. Filters and prints links that match a specific criteria.
+/// 
+/// The program is supposed to be ran from the terminal and piped into a file or another program or script.
 ///
 /// # Errors
 ///
