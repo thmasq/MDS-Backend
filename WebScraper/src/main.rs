@@ -1,6 +1,24 @@
 use scraper::{Html, Selector};
 use std::fs;
 
+/// Main function to process HTML files in the current directory and extract links
+/// that start with "https://sig.unb.br/sigrh/downloadArquivo?idArquivo=".
+///
+/// This function performs the following steps:
+///
+/// 1. Retrieves the current directory.
+/// 2. Reads the directory entries.
+/// 3. Parses HTML files in the directory, looking for 'a' elements.
+/// 4. Filters and prints links that match a specific criteria.
+///
+/// # Errors
+///
+/// This function may panic if it fails to perform any of the following operations:
+///
+/// - Getting the current directory.
+/// - Reading directory entries.
+/// - Parsing the HTML document.
+/// - Reading a file's contents.
 fn main() {
     // Get the current directory
     let current_dir = std::env::current_dir().expect("Failed to get current directory");
