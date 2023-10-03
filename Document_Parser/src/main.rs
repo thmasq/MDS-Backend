@@ -1,5 +1,5 @@
 use chrono::Datelike;
-use fancy_regex::Regex;
+use lazy_regex::regex;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -9,6 +9,7 @@ use std::process::Command;
 use std::result::Result;
 use std::{fs, io};
 
+/// Represents each document entry, with macros to both read and write to a JSON file.
 #[derive(Serialize, Deserialize)]
 struct Entry {
     id: String,
@@ -18,11 +19,14 @@ struct Entry {
     link: String,
 }
 
+/// Represents an array of document entries, with macros to both read and write to a JSON file.
 #[derive(Serialize, Deserialize)]
 struct Data {
     entries: Vec<Entry>,
 }
 
+/// On program startup checks for the existence of in, old and out folders, for ingesting, moving to
+/// and outputting results respectively.
 fn create_folders_if_not_exist() -> Result<(), io::Error> {
     let folders: [&str; 3] = ["in", "out", "old"];
 
@@ -45,7 +49,9 @@ fn create_folders_if_not_exist() -> Result<(), io::Error> {
 
     Ok(())
 }
-
+/// Receives a reference to a string with the formatted text and a reference to a vector with
+/// keywords, optionally returning a string with the title. This function looks for the title in
+/// each line and immediately returns upon finding it.
 fn return_title(formatted_text: &str, keywords: &[&str]) -> Option<String> {
     let mut found_title: Option<String> = None;
     for line in formatted_text.lines() {
@@ -57,6 +63,10 @@ fn return_title(formatted_text: &str, keywords: &[&str]) -> Option<String> {
     found_title
 }
 
+/// Receives a reference to a string with the formatted text, optionally returning a 64-bit integer
+/// with the date as Unix Epoch. This function looks for the date in each line and immediately
+/// returns upon finding it. First it searches for dates in the Brazilian format, and if it is not
+/// found, it looks for numerical dates.
 fn return_date(formatted_text: &str) -> Option<i64> {
     if let Some(date) = extract_portuguese_date(formatted_text) {
         return Some(date);
@@ -71,12 +81,18 @@ fn return_date(formatted_text: &str) -> Option<i64> {
     None
 }
 
+/// Receives a string with the Extracted Text, a reference to a vector with Keywords and a reference
+/// to a Hash-Set of Already Processed Titles, optionally returning a Title string and a 64-bit
+/// integer with the Date as Unix Epoch. It is guaranteed to return a boolean that tells if a given
+/// entry is a duplicate. Upon finding a duplicate, this function will print a warning on the
+/// terminal output, and will return no date, no title and a True value for the is_duplicate
+/// boolean.
 #[allow(clippy::unnecessary_wraps)]
 fn return_parameters(
     text: &str,
     keywords: &[&str],
     existing_titles: &HashSet<String>,
-) -> Result<(Option<String>, String, Option<i64>, bool), pdf_extract::OutputError> {
+) -> Result<(Option<String>, Option<i64>, bool), pdf_extract::OutputError> {
     let found_title = return_title(text, keywords);
     let found_date = return_date(text);
 
@@ -93,12 +109,17 @@ fn return_parameters(
         }
     }
 
-    Ok((result_title, text.to_string(), result_date, is_duplicate))
+    Ok((result_title, result_date, is_duplicate))
 }
 
+/// This function takes a reference to a Line of text and returns a 64-bit integer with Date as Unix
+/// Epoch. The regex engine looks for a case-insensitive match of a Portuguese Date format, i.e., “2
+/// de Outubro de 2023”. If the date is formatted with only the last two digits of a year, the
+/// function will decide in which century it is by fitting the date in the range of 1960 to 2059.
 fn extract_portuguese_date(line: &str) -> Option<i64> {
     // Define month names in Portuguese (case-insensitive)
-    let month_names = ["janeiro",
+    let month_names = [
+        "janeiro",
         "fevereiro",
         "março",
         "abril",
@@ -109,16 +130,15 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
         "setembro",
         "outubro",
         "novembro",
-        "dezembro"];
+        "dezembro",
+    ];
 
     // Regular expression to match the Portuguese date format
-    let re = Regex::new(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})")
-        .expect("Invalid Regular Expression for Portuguese Date.");
+    let re = regex!(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})");
 
-    if let Ok(Some(captures)) = re.captures(line) {
+    if let Some(captures) = re.captures(line) {
         let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
         let month_str = captures.get(2)?.as_str().to_lowercase();
-        let year_str = captures.get(3)?.as_str();
 
         // Convert the Portuguese month name to a numeric month
         let month: Option<u32> = month_names
@@ -127,21 +147,8 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
             .and_then(|idx| idx.try_into().ok());
 
         if let Some(month) = month {
-            // Determine the year format (2 or 4 digits)
-            let year: i32 = if year_str.len() == 2 {
-                let current_year = chrono::Local::now().year() % 100; // Get the current two-digit year
-                let year: i32 = year_str.parse::<i32>().ok()?;
-                if year <= current_year {
-                    // If the year is less than or equal to the current two-digit year, assume it's in the current
-                    // century
-                    2000 + year
-                } else {
-                    // Otherwise, assume it's in the previous century
-                    1900 + year
-                }
-            } else {
-                year_str.parse::<i32>().ok()?
-            };
+            // Hardcode the year as 1960
+            let year: i32 = 1960;
 
             let date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
             return Some(date.and_hms_opt(0, 0, 0)?.timestamp());
@@ -151,11 +158,14 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
     None
 }
 
+/// This function is run if [extract_portuguese_date] returns nothing. It takes a reference to a
+/// Line of text and returns a 64-bit integer with Date as Unix Epoch. The regex engine looks for
+/// any slash separated date, ranging from 4 digits up to 8, i.e., from 2/9/23 to 02/09/2023.
 fn extract_date(line: &str) -> Option<i64> {
-    let re = Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{2,4})").expect("Invalid Regular Expression for Date.");
+    let re = regex!(r"(\d{1,2})/(\d{1,2})/(\d{2,4})");
     let captures = re.captures(line);
 
-    if let Ok(Some(captures)) = captures {
+    if let Some(captures) = captures {
         let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
         let month: u32 = captures.get(2)?.as_str().parse::<u32>().ok()?;
         let year_str = captures.get(3)?.as_str();
@@ -183,6 +193,11 @@ fn extract_date(line: &str) -> Option<i64> {
     None
 }
 
+/// This function takes a reference to the path of the file currently being evaluated and returns a
+/// result, which may be either a string, or a pointer to a heap allocated region containing the
+/// error. This is necessary because the error size cannot be known at compile time. Based on the
+/// file stem (the part that is not the extension), which must be formatted in a very particular
+/// way, this function generates a URL which can be used to download the PDF it is associated to.
 fn get_link(path: &Path) -> Result<String, Box<dyn Error>> {
     Option::map(
         Option::and_then(path.file_stem(), |stem| stem.to_str()),
@@ -202,6 +217,11 @@ fn get_link(path: &Path) -> Result<String, Box<dyn Error>> {
     .unwrap_or_else(|| Err(Box::from(format!("Invalid filename format or path: {path:?}"))))
 }
 
+/// This function takes a reference to the path of the file currently being evaluated and returns a
+/// result, which may be either a string, or a pointer to a heap allocated region containing the
+/// error. This is necessary because the error size cannot be known at compile time. The function
+/// calls Poppler's [pdftotext](https://manpages.debian.org/stretch/poppler-utils/pdftotext.1.en.html) with the path as
+/// an argument, and suppresses the output to stderr.
 fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
     let output = Command::new("pdftotext")
         .arg("-q") // Suppress output to stderr
@@ -217,6 +237,25 @@ fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
     }
 }
 
+/// The main entry point of the program.
+///
+/// This function is responsible for processing PDF files in the 'in' folder, extracting relevant
+/// information, and updating an entries JSON file in the 'out' folder. It performs the following
+/// steps:
+///
+/// 1. Creates necessary folders ('in', 'out', 'old') if they do not exist.
+/// 2. Loads existing entries from 'entries.json' in the 'out' folder if it exists.
+/// 3. Iterates through PDF files in the 'in' folder.
+/// 4. Extracts text content from each PDF file.
+/// 5. Identifies and processes valid entries, including title, date, and link generation.
+/// 6. Moves processed PDF files to the 'old' folder.
+/// 7. Writes updated entry data to 'entries.json' in the 'out' folder.
+///
+/// # Errors
+///
+/// This function returns a `Result<(), Box<dyn Error>>` to handle potential errors during
+/// execution. Any error encountered during folder creation, file I/O, or JSON serialization
+/// will be wrapped in the `Err` variant.
 fn main() -> Result<(), Box<dyn Error>> {
     create_folders_if_not_exist()?;
     let in_folder = Path::new("in");
@@ -249,7 +288,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &["RESOLUÇÃO", "Cronograma", "Calendário", "Calendario"],
                 &existing_titles,
             ) {
-                Ok((title, formatted_text, date, is_duplicate)) => {
+                Ok((title, date, is_duplicate)) => {
                     if let Some(title_str) = title.as_ref() {
                         println!("Title found: {title_str}");
                         existing_titles.insert(title_str.clone());
@@ -273,7 +312,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             id: title_hash,
                             title,
                             date,
-                            content: formatted_text,
+                            content: text,
                             link,
                         };
 
