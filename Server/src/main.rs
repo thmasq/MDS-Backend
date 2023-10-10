@@ -19,6 +19,7 @@ struct PDFdoc {
     date: i64,
     content: String,
     link: String,
+    is_normative: bool,
 }
 
 /// Wrapper for the search results.
@@ -58,6 +59,7 @@ fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDF
             date: hit.result.date,
             content: hit.result.content.clone(),
             link: hit.result.link.clone(),
+            is_normative: hit.result.is_normative.clone(),
         })
         .collect();
 

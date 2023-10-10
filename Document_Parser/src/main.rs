@@ -4,6 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::error::Error;
+use std::io::Write;
 use std::path::Path;
 use std::process::Command;
 use std::result::Result;
@@ -17,6 +18,7 @@ struct Entry {
     date: Option<i64>,
     content: String,
     link: String,
+    is_normative: bool,
 }
 
 /// Represents an array of document entries, with macros to both read and write to a JSON file.
@@ -237,6 +239,26 @@ fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
     }
 }
 
+/// This function takes a reference to a prompt string and returns a boolean value to be used
+/// globally for all entries currently being evaluated and read from in the IN folder. It loops and
+/// prompts for yes or no until a valid response is matched.
+fn prompt_normative(prompt: &str) -> bool {
+    loop {
+        print!("{}", prompt);
+        io::stdout().flush().expect("Failed to flush stdout");
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Failed to read line");
+
+        let trimmed = input.trim().to_lowercase();
+        match trimmed.as_str() {
+            "yes" | "y" => return true,
+            "no" | "n" => return false,
+            _ => println!("Please enter 'yes' or 'no'."),
+        }
+    }
+}
+
 /// The main entry point of the program.
 ///
 /// This function is responsible for processing PDF files in the 'in' folder, extracting relevant
@@ -277,6 +299,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             entries.push(entry);
         }
     }
+    // Prompt the user for the global is_normative switch
+    let is_normative = prompt_normative("Set is_normative for new entries? (yes/no): ");
 
     for entry in fs::read_dir(in_folder)? {
         let entry = entry?;
@@ -314,6 +338,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                             date,
                             content: text,
                             link,
+                            is_normative,
                         };
 
                         entries.push(entry);
