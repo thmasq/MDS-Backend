@@ -12,7 +12,7 @@ struct SearchQueryWrapper {
 }
 
 /// Represents the fields of each object in the database.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 struct PDFdoc {
     id: String,
     title: String,
@@ -23,7 +23,7 @@ struct PDFdoc {
 }
 
 /// Wrapper for the search results.
-#[derive(Serialize, Debug)]
+#[derive(Serialize)]
 struct SearchResults {
     results: Vec<PDFdoc>,
 }
@@ -82,12 +82,8 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
     // Query Meilisearch
     let search_results = query_meilisearch(trimmed_query, &client).await?;
 
-    println!("Meilisearch search results: {search_results:#?}");
-
     // Transform results
     let search_results = transform_results(&search_results);
-
-    println!("Returning search results as JSON: {search_results:#?}");
 
     Ok(HttpResponse::Ok().json(search_results))
 }
