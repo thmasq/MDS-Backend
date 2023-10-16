@@ -1,6 +1,7 @@
 use scraper::{Html, Selector};
 use std::fs;
 
+#[allow(clippy::doc_markdown)]
 /// Main function to process HTML files in the current directory and extract links
 /// that start with "https://sig.unb.br/sigrh/downloadArquivo?idArquivo=".
 ///
