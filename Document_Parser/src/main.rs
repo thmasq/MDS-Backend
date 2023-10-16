@@ -87,7 +87,7 @@ fn return_date(formatted_text: &str) -> Option<i64> {
 /// to a Hash-Set of Already Processed Titles, optionally returning a Title string and a 64-bit
 /// integer with the Date as Unix Epoch. It is guaranteed to return a boolean that tells if a given
 /// entry is a duplicate. Upon finding a duplicate, this function will print a warning on the
-/// terminal output, and will return no date, no title and a True value for the is_duplicate
+/// terminal output, and will return no date, no title and a True value for the `is_duplicate`
 /// boolean.
 #[allow(clippy::unnecessary_wraps)]
 fn return_parameters(
@@ -160,7 +160,7 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
     None
 }
 
-/// This function is run if [extract_portuguese_date] returns nothing. It takes a reference to a
+/// This function is run if [`extract_portuguese_date`] returns nothing. It takes a reference to a
 /// Line of text and returns a 64-bit integer with Date as Unix Epoch. The regex engine looks for
 /// any slash separated date, ranging from 4 digits up to 8, i.e., from 2/9/23 to 02/09/2023.
 fn extract_date(line: &str) -> Option<i64> {
@@ -244,7 +244,7 @@ fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
 /// prompts for yes or no until a valid response is matched.
 fn prompt_normative(prompt: &str) -> bool {
     loop {
-        print!("{}", prompt);
+        print!("{prompt}");
         io::stdout().flush().expect("Failed to flush stdout");
 
         let mut input = String::new();

@@ -52,7 +52,7 @@ fn main() {
                 html.select(&selector).for_each(|element| {
                     if let Some(href) = element.value().attr("href") {
                         if href.starts_with("https://sig.unb.br/sigrh/downloadArquivo?idArquivo=") {
-                            println!("{}", href);
+                            println!("{href}");
                         }
                     }
                 });

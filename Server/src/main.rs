@@ -59,7 +59,7 @@ fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDF
             date: hit.result.date,
             content: hit.result.content.clone(),
             link: hit.result.link.clone(),
-            is_normative: hit.result.is_normative.clone(),
+            is_normative: hit.result.is_normative,
         })
         .collect();
 
