@@ -22,9 +22,8 @@ struct PDFdoc {
     is_normative: bool,
 }
 
-/// Wrapper for the search results.
 #[derive(Serialize)]
-struct SearchResults {
+struct SearchResponse {
     results: Vec<PDFdoc>,
 }
 
@@ -48,8 +47,7 @@ async fn query_meilisearch(
     Ok(search_results)
 }
 
-/// Transforms Meilisearch search results into a custom format suitable for the response.
-fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> SearchResults {
+fn serialize_search_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> String {
     let entries: Vec<PDFdoc> = search_results
         .hits
         .par_iter()
@@ -63,7 +61,9 @@ fn transform_results(search_results: &meilisearch_sdk::search::SearchResults<PDF
         })
         .collect();
 
-    SearchResults { results: entries }
+    let search_response = SearchResponse { results: entries };
+
+    serde_json::to_string(&search_response).expect("Could not serialize search results")
 }
 
 /// The main search function. Listens for JSON requests with a search query and returns a JSON
@@ -76,16 +76,18 @@ async fn search(query: web::Query<SearchQueryWrapper>, client: web::Data<Client>
 
     if trimmed_query.len() < 3 {
         // You can adjust the minimum query length
-        return Ok(HttpResponse::Ok().json(SearchResults { results: vec![] }));
+        return Ok(HttpResponse::Ok().json(SearchResponse { results: vec![] }));
     }
 
     // Query Meilisearch
     let search_results = query_meilisearch(trimmed_query, &client).await?;
 
-    // Transform results
-    let search_results = transform_results(&search_results);
+    // Serialize the results to JSON
+    let search_results_json = serialize_search_results(&search_results);
 
-    Ok(HttpResponse::Ok().json(search_results))
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(search_results_json))
 }
 
 /// Serves the main webpage.
