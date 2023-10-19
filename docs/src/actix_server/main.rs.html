@@ -123,6 +123,40 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>actix_files::{Files, NamedFile};
 <span class="kw">use </span>actix_web::{web, App, Error, HttpResponse, HttpServer};
 <span class="kw">use </span>meilisearch_sdk::client::Client;
@@ -137,24 +171,23 @@
 }
 
 <span class="doccomment">/// Represents the fields of each object in the database.
-</span><span class="attr">#[derive(Serialize, Deserialize, Debug)]
+</span><span class="attr">#[derive(Serialize, Deserialize)]
 </span><span class="kw">struct </span>PDFdoc {
     id: String,
     title: String,
     date: i64,
     content: String,
     link: String,
-    is_normative: bool,
+    is_normative: i32,
 }
-
-<span class="doccomment">/// Wrapper for the search results.
-</span><span class="attr">#[derive(Serialize, Debug)]
-</span><span class="kw">struct </span>SearchResults {
+<span class="doccomment">/// Wraper for the server response
+</span><span class="attr">#[derive(Serialize)]
+</span><span class="kw">struct </span>SearchResponse {
     results: Vec&lt;PDFdoc&gt;,
 }
 
 <span class="doccomment">/// Performs a Meilisearch query based on the provided query string and the Meilisearch client.
-/// Returns Meilisearch search results or an internal server error if the query fails.
+/// Returns Meilisearch search results, or an internal server error if the query fails.
 </span><span class="kw">async fn </span>query_meilisearch(
     query: <span class="kw-2">&amp;</span>str,
     client: <span class="kw-2">&amp;</span>Client,
@@ -173,8 +206,10 @@
     <span class="prelude-val">Ok</span>(search_results)
 }
 
-<span class="doccomment">/// Transforms Meilisearch search results into a custom format suitable for the response.
-</span><span class="kw">fn </span>transform_results(search_results: <span class="kw-2">&amp;</span>meilisearch_sdk::search::SearchResults&lt;PDFdoc&gt;) -&gt; SearchResults {
+<span class="doccomment">/// This function serializes the search results since it does not implement the Serialize and
+/// Deserialize traits. It receives a SearchResults Struct and returns a JSON formatted string with
+/// the vector of results.
+</span><span class="kw">fn </span>serialize_search_results(search_results: <span class="kw-2">&amp;</span>meilisearch_sdk::search::SearchResults&lt;PDFdoc&gt;) -&gt; String {
     <span class="kw">let </span>entries: Vec&lt;PDFdoc&gt; = search_results
         .hits
         .par_iter()
@@ -184,11 +219,13 @@
             date: hit.result.date,
             content: hit.result.content.clone(),
             link: hit.result.link.clone(),
-            is_normative: hit.result.is_normative.clone(),
+            is_normative: hit.result.is_normative,
         })
         .collect();
 
-    SearchResults { results: entries }
+    <span class="kw">let </span>search_response = SearchResponse { results: entries };
+
+    serde_json::to_string(<span class="kw-2">&amp;</span>search_response).expect(<span class="string">&quot;Could not serialize search results.&quot;</span>)
 }
 
 <span class="doccomment">/// The main search function. Listens for JSON requests with a search query and returns a JSON
@@ -201,20 +238,18 @@
 
     <span class="kw">if </span>trimmed_query.len() &lt; <span class="number">3 </span>{
         <span class="comment">// You can adjust the minimum query length
-        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(HttpResponse::Ok().json(SearchResults { results: <span class="macro">vec!</span>[] }));
+        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(HttpResponse::Ok().json(SearchResponse { results: <span class="macro">vec!</span>[] }));
     }
 
     <span class="comment">// Query Meilisearch
     </span><span class="kw">let </span>search_results = query_meilisearch(trimmed_query, <span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="macro">println!</span>(<span class="string">&quot;Meilisearch search results: {search_results:#?}&quot;</span>);
+    <span class="comment">// Serialize the results to JSON
+    </span><span class="kw">let </span>search_results_json = serialize_search_results(<span class="kw-2">&amp;</span>search_results);
 
-    <span class="comment">// Transform results
-    </span><span class="kw">let </span>search_results = transform_results(<span class="kw-2">&amp;</span>search_results);
-
-    <span class="macro">println!</span>(<span class="string">&quot;Returning search results as JSON: {search_results:#?}&quot;</span>);
-
-    <span class="prelude-val">Ok</span>(HttpResponse::Ok().json(search_results))
+    <span class="prelude-val">Ok</span>(HttpResponse::Ok()
+        .content_type(<span class="string">&quot;application/json&quot;</span>)
+        .body(search_results_json))
 }
 
 <span class="doccomment">/// Serves the main webpage.
@@ -248,4 +283,37 @@
     <span class="macro">println!</span>(<span class="string">&quot;Actix-web server started at http://127.0.0.1:8080&quot;</span>);
     server.run().<span class="kw">await
 </span>}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::env;
+
+    <span class="attr">#[actix_rt::test]
+    </span><span class="kw">async fn </span>test_query_meilisearch() {
+        <span class="comment">// Get the API key from the environment, just like in your main function.
+        </span><span class="kw">let </span>api_key = env::var(<span class="string">&quot;MEILISEARCH_API_KEY&quot;</span>).expect(<span class="string">&quot;missing MEILISEARCH_API_KEY environment variable.&quot;</span>);
+
+        <span class="comment">// Create a Meilisearch client.
+        </span><span class="kw">let </span>client = Client::new(<span class="string">&quot;http://localhost:7700&quot;</span>, <span class="prelude-val">Some</span>(api_key));
+
+        <span class="comment">// Test a variety of queries.
+        </span><span class="kw">let </span>queries = <span class="macro">vec!</span>[<span class="string">&quot;trancamento&quot;</span>, <span class="string">&quot;ProgreÇãO dE carREirA&quot;</span>, <span class="string">&quot;troca&quot;</span>, <span class="string">&quot;perspicaz&quot;</span>];
+
+        <span class="kw">for </span>query <span class="kw">in </span>queries {
+            <span class="kw">let </span>result = query_meilisearch(query, <span class="kw-2">&amp;</span>client).<span class="kw">await</span>;
+
+            <span class="comment">// Assert that the result is Ok.
+            </span><span class="macro">assert!</span>(result.is_ok());
+
+            <span class="comment">// If you want to check is_normative, you can iterate through the documents and assert the
+            // constraints.
+            </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(search_results) = result {
+                <span class="kw">for </span>doc <span class="kw">in </span><span class="kw-2">&amp;</span>search_results.hits {
+                    <span class="macro">assert!</span>((<span class="number">1</span>..=<span class="number">3</span>).contains(<span class="kw-2">&amp;</span>doc.result.is_normative));
+                }
+            }
+        }
+    }
+}
 </code></pre></div></section></main></body></html>

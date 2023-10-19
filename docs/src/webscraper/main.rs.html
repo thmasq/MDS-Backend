@@ -60,10 +60,12 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>scraper::{Html, Selector};
 <span class="kw">use </span>std::fs;
 
-<span class="doccomment">/// Main function to process HTML files in the current directory and extract links
+<span class="attr">#[allow(clippy::doc_markdown)]
+</span><span class="doccomment">/// Main function to process HTML files in the current directory and extract links
 /// that start with &quot;https://sig.unb.br/sigrh/downloadArquivo?idArquivo=&quot;.
 ///
 /// This function performs the following steps:
@@ -114,7 +116,7 @@
                 </span>html.select(<span class="kw-2">&amp;</span>selector).for_each(|element| {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(href) = element.value().attr(<span class="string">&quot;href&quot;</span>) {
                         <span class="kw">if </span>href.starts_with(<span class="string">&quot;https://sig.unb.br/sigrh/downloadArquivo?idArquivo=&quot;</span>) {
-                            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, href);
+                            <span class="macro">println!</span>(<span class="string">&quot;{href}&quot;</span>);
                         }
                     }
                 });
