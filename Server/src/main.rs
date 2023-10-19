@@ -19,7 +19,7 @@ struct PDFdoc {
     date: i64,
     content: String,
     link: String,
-    is_normative: bool,
+    is_normative: i32,
 }
 
 #[derive(Serialize)]
@@ -130,13 +130,13 @@ mod tests {
     #[actix_rt::test]
     async fn test_query_meilisearch() {
         // Get the API key from the environment, just like in your main function.
-        let api_key = env::var("MEILISEARCH_API_KEY").unwrap();
+        let api_key = env::var("MEILISEARCH_API_KEY").expect("missing MEILISEARCH_API_KEY environment variable.");
 
         // Create a Meilisearch client.
         let client = Client::new("http://localhost:7700", Some(api_key));
 
         // Test a variety of queries.
-        let queries = vec!["test", "example", "query"];
+        let queries = vec!["trancamento", "ProgreÇãO dE carREirA", "troca", "perspicaz"];
 
         for query in queries {
             let result = query_meilisearch(query, &client).await;
@@ -144,9 +144,13 @@ mod tests {
             // Assert that the result is Ok.
             assert!(result.is_ok());
 
-            // If you want, you can also inspect the result and make more specific assertions.
-            // For example, you might want to assert that the result contains a certain number of documents,
-            // or that all the documents meet certain criteria.
+            // If you want to check is_normative, you can iterate through the documents and assert the
+            // constraints.
+            if let Ok(search_results) = result {
+                for doc in &search_results.hits {
+                    assert!((1..=3).contains(&doc.result.is_normative));
+                }
+            }
         }
     }
 }

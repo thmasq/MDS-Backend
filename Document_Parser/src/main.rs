@@ -18,7 +18,7 @@ struct Entry {
     date: Option<i64>,
     content: String,
     link: String,
-    is_normative: bool,
+    is_normative: i32,
 }
 
 /// Represents an array of document entries, with macros to both read and write to a JSON file.
@@ -239,10 +239,10 @@ fn extract_text(path: &Path) -> Result<String, Box<dyn Error>> {
     }
 }
 
-/// This function takes a reference to a prompt string and returns a boolean value to be used
-/// globally for all entries currently being evaluated and read from in the IN folder. It loops and
-/// prompts for yes or no until a valid response is matched.
-fn prompt_normative(prompt: &str) -> bool {
+/// This function takes a reference to a prompt string and returns a 32 bit integer (can be 1, 2 or
+/// 3 only) to be used globally for all entries currently being evaluated and read from in the IN
+/// folder. It loops and prompts for yes or no until a valid response is matched.
+fn prompt_normative(prompt: &str) -> i32 {
     loop {
         print!("{prompt}");
         io::stdout().flush().expect("Failed to flush stdout");
@@ -252,9 +252,10 @@ fn prompt_normative(prompt: &str) -> bool {
 
         let trimmed = input.trim().to_lowercase();
         match trimmed.as_str() {
-            "yes" | "y" => return true,
-            "no" | "n" => return false,
-            _ => println!("Please enter 'yes' or 'no'."),
+            "1" => return 1,
+            "2" => return 2,
+            "3" => return 3,
+            _ => println!("Please enter a valid number. [1, 2, 3]"),
         }
     }
 }
@@ -300,7 +301,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     // Prompt the user for the global is_normative switch
-    let is_normative = prompt_normative("Set is_normative for new entries? (yes/no): ");
+    let is_normative = prompt_normative(
+        "Choose one of the following for all documents in the IN folder:\n1 - Normative\n2 - Deliberative\n3 - Unspecified",
+    );
 
     for entry in fs::read_dir(in_folder)? {
         let entry = entry?;
