@@ -1,5 +1,5 @@
 use chrono::Datelike;
-use lazy_regex::regex;
+use fancy_regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -120,8 +120,7 @@ fn return_parameters(
 /// function will decide in which century it is by fitting the date in the range of 1960 to 2059.
 fn extract_portuguese_date(line: &str) -> Option<i64> {
     // Define month names in Portuguese (case-insensitive)
-    let month_names = [
-        "janeiro",
+    let month_names = ["janeiro",
         "fevereiro",
         "março",
         "abril",
@@ -132,15 +131,16 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
         "setembro",
         "outubro",
         "novembro",
-        "dezembro",
-    ];
+        "dezembro"];
 
     // Regular expression to match the Portuguese date format
-    let re = regex!(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})");
+    let re = Regex::new(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})")
+        .expect("Invalid Regular Expression for Portuguese Date.");
 
-    if let Some(captures) = re.captures(line) {
+    if let Ok(Some(captures)) = re.captures(line) {
         let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
         let month_str = captures.get(2)?.as_str().to_lowercase();
+        let year_str = captures.get(3)?.as_str();
 
         // Convert the Portuguese month name to a numeric month
         let month: Option<u32> = month_names
@@ -149,8 +149,21 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
             .and_then(|idx| idx.try_into().ok());
 
         if let Some(month) = month {
-            // Hardcode the year as 1960
-            let year: i32 = 1960;
+            // Determine the year format (2 or 4 digits)
+            let year: i32 = if year_str.len() == 2 {
+                let current_year = chrono::Local::now().year() % 100; // Get the current two-digit year
+                let year: i32 = year_str.parse::<i32>().ok()?;
+                if year <= current_year {
+                    // If the year is less than or equal to the current two-digit year, assume it's in the current
+                    // century
+                    2000 + year
+                } else {
+                    // Otherwise, assume it's in the previous century
+                    1900 + year
+                }
+            } else {
+                year_str.parse::<i32>().ok()?
+            };
 
             let date: chrono::NaiveDate = chrono::NaiveDate::from_ymd_opt(year, month, day)?;
             return Some(date.and_hms_opt(0, 0, 0)?.timestamp());
@@ -164,10 +177,10 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
 /// Line of text and returns a 64-bit integer with Date as Unix Epoch. The regex engine looks for
 /// any slash separated date, ranging from 4 digits up to 8, i.e., from 2/9/23 to 02/09/2023.
 fn extract_date(line: &str) -> Option<i64> {
-    let re = regex!(r"(\d{1,2})/(\d{1,2})/(\d{2,4})");
+    let re = Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{2,4})").expect("Invalid Regular Expression for Date.");
     let captures = re.captures(line);
 
-    if let Some(captures) = captures {
+    if let Ok(Some(captures)) = captures {
         let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
         let month: u32 = captures.get(2)?.as_str().parse::<u32>().ok()?;
         let year_str = captures.get(3)?.as_str();
