@@ -63,7 +63,7 @@ fn serialize_search_results(search_results: &meilisearch_sdk::search::SearchResu
 
     let search_response = SearchResponse { results: entries };
 
-    serde_json::to_string(&search_response).expect("Could not serialize search results")
+    serde_json::to_string(&search_response).expect("Could not serialize search results.")
 }
 
 /// The main search function. Listens for JSON requests with a search query and returns a JSON
@@ -120,4 +120,33 @@ async fn main() -> std::io::Result<()> {
     let server = server.bind("127.0.0.1:8080")?;
     println!("Actix-web server started at http://127.0.0.1:8080");
     server.run().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[actix_rt::test]
+    async fn test_query_meilisearch() {
+        // Get the API key from the environment, just like in your main function.
+        let api_key = env::var("MEILISEARCH_API_KEY").unwrap();
+
+        // Create a Meilisearch client.
+        let client = Client::new("http://localhost:7700", Some(api_key));
+
+        // Test a variety of queries.
+        let queries = vec!["test", "example", "query"];
+
+        for query in queries {
+            let result = query_meilisearch(query, &client).await;
+
+            // Assert that the result is Ok.
+            assert!(result.is_ok());
+
+            // If you want, you can also inspect the result and make more specific assertions.
+            // For example, you might want to assert that the result contains a certain number of documents,
+            // or that all the documents meet certain criteria.
+        }
+    }
 }
