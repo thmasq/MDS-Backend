@@ -315,7 +315,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     // Prompt the user for the global is_normative switch
     let is_normative = prompt_normative(
-        "Choose one of the following for all documents in the IN folder:\n1 - Normative\n2 - Deliberative\n3 - Unspecified",
+        "Choose one of the following for all documents in the IN folder:\n1 - Normative\n2 - Deliberative\n3 - Unspecified\n",
     );
 
     for entry in fs::read_dir(in_folder)? {
