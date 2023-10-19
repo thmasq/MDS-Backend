@@ -21,14 +21,14 @@ struct PDFdoc {
     link: String,
     is_normative: i32,
 }
-
+/// Wraper for the server response
 #[derive(Serialize)]
 struct SearchResponse {
     results: Vec<PDFdoc>,
 }
 
 /// Performs a Meilisearch query based on the provided query string and the Meilisearch client.
-/// Returns Meilisearch search results or an internal server error if the query fails.
+/// Returns Meilisearch search results, or an internal server error if the query fails.
 async fn query_meilisearch(
     query: &str,
     client: &Client,
@@ -47,6 +47,9 @@ async fn query_meilisearch(
     Ok(search_results)
 }
 
+/// This function serializes the search results since it does not implement the Serialize and
+/// Deserialize traits. It receives a SearchResults Struct and returns a JSON formatted string with
+/// the vector of results.
 fn serialize_search_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> String {
     let entries: Vec<PDFdoc> = search_results
         .hits

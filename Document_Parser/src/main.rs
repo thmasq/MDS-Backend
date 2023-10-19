@@ -120,7 +120,8 @@ fn return_parameters(
 /// function will decide in which century it is by fitting the date in the range of 1960 to 2059.
 fn extract_portuguese_date(line: &str) -> Option<i64> {
     // Define month names in Portuguese (case-insensitive)
-    let month_names = ["janeiro",
+    let month_names = [
+        "janeiro",
         "fevereiro",
         "março",
         "abril",
@@ -131,7 +132,8 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
         "setembro",
         "outubro",
         "novembro",
-        "dezembro"];
+        "dezembro",
+    ];
 
     // Regular expression to match the Portuguese date format
     let re = Regex::new(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})")
