@@ -8,12 +8,16 @@ document.querySelector('#searchQuery').addEventListener('input', () => {
 // Add an event listener to the sort button
 document.querySelector('#sortButton').addEventListener('click', sortResults);
 
+// Add an event listener to the filter button
+document.querySelector('#filterButton').addEventListener('click', filterResults);
+
 // Initialize a timeout variable
 let timeout;
 
 // Initialize variables to store the search results
 let searchResults = [];
 let originalResults = [];
+let filteredResults = [];
 
 function sortResults() {
     // Get the selected sort option
@@ -22,19 +26,46 @@ function sortResults() {
     // Depending on the selected option, sort the results
     switch (sortOption) {
         case 'newest':
-            searchResults.sort((a, b) => b.date - a.date);
+            filteredResults.sort((a, b) => b.date - a.date);
             break;
         case 'oldest':
-            searchResults.sort((a, b) => a.date - b.date);
+            filteredResults.sort((a, b) => a.date - b.date);
             break;
         case 'relevance':
         default:
-            // Restore the original order of the search results
-            searchResults = [...originalResults];
+            // Restore the original order of the filtered results
+            filteredResults = filteredResults.sort((a, b) => {
+                const originalIndexA = filteredResults.indexOf(a);
+                const originalIndexB = filteredResults.indexOf(b);
+                return originalIndexA - originalIndexB;
+            });
             break;
     }
 
     // Display the sorted results
+    displayResults();
+}
+
+function filterResults() {
+    const startDateInput = document.querySelector('#startDate').value;
+    const endDateInput = document.querySelector('#endDate').value;
+
+    // Check if both start and end date inputs are empty
+    if (!startDateInput && !endDateInput) {
+        // Reset the filtered results to the original results
+        filteredResults = [...originalResults];
+    } else {
+        const startDate = new Date(startDateInput);
+        const endDate = new Date(endDateInput);
+
+        // Filter the originalResults array based on the date range
+        filteredResults = originalResults.filter((entry) => {
+            const entryDate = new Date(entry.date * 1000);
+            return entryDate >= startDate && entryDate <= endDate;
+        });
+    }
+
+    // Display the filtered results
     displayResults();
 }
 
@@ -55,6 +86,7 @@ function performSearch() {
             // Store the search results and the original order
             searchResults = data.results;
             originalResults = [...searchResults];
+            filteredResults = [...searchResults];
 
             // Display the results
             displayResults();
@@ -71,8 +103,8 @@ function displayResults() {
     // Clear the current results
     resultsContainer.innerHTML = '';
 
-    // Loop through the results and create HTML elements to display each entry
-    searchResults.forEach((entry) => {
+    // Loop through the filtered results and create HTML elements to display each entry
+    filteredResults.forEach((entry) => {
         const pdfElement = document.createElement('div');
         pdfElement.classList.add('entry');
 
