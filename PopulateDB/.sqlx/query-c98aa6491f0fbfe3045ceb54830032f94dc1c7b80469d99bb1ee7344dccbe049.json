@@ -1,0 +1,47 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT userName, email, token FROM USER",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "userName",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "token",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "c98aa6491f0fbfe3045ceb54830032f94dc1c7b80469d99bb1ee7344dccbe049"
+}

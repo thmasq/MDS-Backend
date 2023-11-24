@@ -2,6 +2,7 @@
 members = [
     "Document_Parser",
     "Server",
-    "WebScraper"
+    "WebScraper",
+    "PopulateDB"
 ]
 resolver = "2"
