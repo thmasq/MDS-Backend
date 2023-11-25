@@ -1,14 +1,16 @@
 #![allow(non_snake_case)]
 
 use chrono::{DateTime, NaiveDate, Utc};
+use crossterm::event::{self, Event, KeyCode};
+use crossterm::execute;
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use rand::Rng;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::{query, MySql, Pool};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
-use crossterm::{event::{self, Event, KeyCode}, execute, terminal::{EnterAlternateScreen, LeaveAlternateScreen}, };
-use std::io::stdout;  
+use std::io::stdout;
 
 #[derive(Debug)]
 struct User {
@@ -35,9 +37,9 @@ struct Favorite {
 
 #[derive(Debug)]
 enum MyError {
-   SqlxError(sqlx::Error),
-   IoError(std::io::Error),
-   InvalidChoice(String),
+    SqlxError(sqlx::Error),
+    IoError(std::io::Error),
+    InvalidChoice(String),
 }
 
 impl fmt::Display for MyError {
@@ -62,7 +64,7 @@ impl From<std::io::Error> for MyError {
     fn from(err: std::io::Error) -> Self {
         Self::IoError(err)
     }
- }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -211,16 +213,16 @@ async fn create_favorite(
 
     // Generate a unique favoriteId
     let mut rng = rand::rngs::OsRng;
-let mut favoriteId: i64;
+    let mut favoriteId: i64;
 
-// Loop until a unique favoriteId is generated
-loop {
-   favoriteId = rng.gen();
+    // Loop until a unique favoriteId is generated
+    loop {
+        favoriteId = rng.gen();
 
-   // Check if the generated favoriteId already exists in the database
-   let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM favorites WHERE favoriteId = ?", favoriteId)
-       .fetch_one(pool)
-       .await?;
+        // Check if the generated favoriteId already exists in the database
+        let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM favorites WHERE favoriteId = ?", favoriteId)
+            .fetch_one(pool)
+            .await?;
 
         if count == 0 {
             break; // Exit the loop if the favoriteId is unique
@@ -256,33 +258,82 @@ async fn list_users(pool: &Pool<MySql>) -> Result<HashMap<Option<String>, Option
     let users = sqlx::query_as!(User, "SELECT userName, email, token FROM USER")
         .fetch_all(pool)
         .await?;
- 
+
     let mut user_map = HashMap::new();
- 
+
     for user in users {
         user_map.insert(user.email.clone(), user.token.clone());
     }
- 
+
     Ok(user_map)
- }
- 
- async fn list_documents(pool: &Pool<MySql>) -> Result<HashMap<Option<String>, Option<String>>, MyError> {
+}
+
+async fn list_documents(pool: &Pool<MySql>) -> Result<HashMap<Option<String>, Option<String>>, MyError> {
     let documents = sqlx::query_as!(
         Document,
         "SELECT docName, docKey, content, creationDate, link FROM DOCUMENT"
     )
     .fetch_all(pool)
     .await?;
- 
+
     let mut document_map = HashMap::new();
- 
+
     for document in documents {
         document_map.insert(document.docName.clone(), document.docKey.clone());
     }
- 
+
     Ok(document_map)
- }
- 
+}
+
+fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
+    execute!(stdout(), EnterAlternateScreen)?;
+
+    println!("\nUsers:");
+    for (i, user) in users.iter().enumerate() {
+        println!("{}. {:?}", i + 1, user.0);
+    }
+    println!();
+
+    loop {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event.code {
+                    KeyCode::Char('q') => break,
+                    _ => {},
+                }
+            }
+        }
+    }
+
+    execute!(stdout(), LeaveAlternateScreen)?;
+
+    Ok(())
+}
+
+fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
+    execute!(stdout(), EnterAlternateScreen)?;
+
+    println!("\nDocuments:");
+    for (i, document) in documents.iter().enumerate() {
+        println!("{}. {:?}", i + 1, document.0);
+    }
+    println!();
+
+    loop {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event.code {
+                    KeyCode::Char('q') => break,
+                    _ => {},
+                }
+            }
+        }
+    }
+
+    execute!(stdout(), LeaveAlternateScreen)?;
+
+    Ok(())
+}
 
 fn select_from_map<T, U, V>(prompt: &str, choices: &HashMap<T, U>) -> Result<(T, U), MyError>
 where
@@ -296,6 +347,7 @@ where
         println!("{}. {:?}", i + 1, choice.0);
     }
 
+    print!("\n");
     let index: usize = input("Enter your choice (number): ");
 
     if index > 0 && index <= choices.len() {
@@ -308,56 +360,6 @@ where
         ))
     }
 }
-
-fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
-    execute!(stdout(), EnterAlternateScreen)?;
- 
-    println!("\nUsers:");
-    for (i, user) in users.iter().enumerate() {
-        println!("{}. {:?}", i + 1, user.0);
-    }
-    println!();
- 
-    loop {
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                   KeyCode::Char('q') => break,
-                   _ => {}
-                }
-            }
-        }
-    }
- 
-    execute!(stdout(), LeaveAlternateScreen)?;
- 
-    Ok(())
- }
- 
- fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
-    execute!(stdout(), EnterAlternateScreen)?;
- 
-    println!("\nDocuments:");
-    for (i, document) in documents.iter().enumerate() {
-        println!("{}. {:?}", i + 1, document.0);
-    }
-    println!();
- 
-    loop {
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                   KeyCode::Char('q') => break,
-                   _ => {}
-                }
-            }
-        }
-    }
- 
-    execute!(stdout(), LeaveAlternateScreen)?;
- 
-    Ok(())
- } 
 
 fn input<T>(prompt: &str) -> T
 where
