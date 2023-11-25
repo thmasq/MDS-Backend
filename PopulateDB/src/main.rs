@@ -334,9 +334,8 @@ async fn list_user_favorites(pool: &Pool<MySql>, user_email: &str) -> Result<(),
     .await?;
 
     // Convert the vector of FavoriteItem to a vector of tuples
-    let favorites_tuples: Vec<(Option<String>, Option<String>)> = favorites.into_iter()
-        .map(|item| (item.email, item.docName))
-        .collect();
+    let favorites_tuples: Vec<(Option<String>, Option<String>)> =
+        favorites.into_iter().map(|item| (item.email, item.docName)).collect();
 
     // Print the favorites and return the result
     print_favorites(&favorites_tuples)
@@ -354,7 +353,9 @@ fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), My
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                if key_event.code == KeyCode::Char('q') { break }
+                if key_event.code == KeyCode::Char('q') {
+                    break;
+                }
             }
         }
     }
@@ -376,7 +377,9 @@ fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Resul
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                if key_event.code == KeyCode::Char('q') { break }
+                if key_event.code == KeyCode::Char('q') {
+                    break;
+                }
             }
         }
     }
@@ -387,7 +390,12 @@ fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Resul
 }
 
 fn print_favorite_item(index: usize, favorite: &(Option<String>, Option<String>)) {
-    println!("{}. User Email: {:?}, Document Title: {:?}", index + 1, favorite.0, favorite.1);
+    println!(
+        "{}. User Email: {:?}, Document Title: {:?}",
+        index + 1,
+        favorite.0,
+        favorite.1
+    );
 }
 
 fn print_favorites(favorites: &[(Option<String>, Option<String>)]) -> Result<(), MyError> {
@@ -402,7 +410,9 @@ fn print_favorites(favorites: &[(Option<String>, Option<String>)]) -> Result<(),
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                if key_event.code == KeyCode::Char('q') { break }
+                if key_event.code == KeyCode::Char('q') {
+                    break;
+                }
             }
         }
     }
