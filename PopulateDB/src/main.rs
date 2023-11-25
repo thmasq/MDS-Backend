@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use chrono::{DateTime, NaiveDate, Utc};
+use clap::Parser;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
@@ -11,7 +12,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::io::stdout;
-use clap::Parser;
 
 #[derive(Debug)]
 struct User {
@@ -35,7 +35,7 @@ struct Favorite {
     userToken: String,
     documentId: String,
 }
-const LOCALHOST: &'static str = "localhost";
+const LOCALHOST: &str = "localhost";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -50,7 +50,7 @@ struct Args {
     username: String,
 
     #[arg(short, long)]
-    password:String,
+    password: String,
 
     #[arg(short, long)]
     database: String,
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     loop {
-        print!("\n");
+        println!();
         println!("1. Create a new document");
         println!("2. Create a new user");
         println!("3. Favorite an item as a user");
@@ -198,7 +198,7 @@ async fn favorite_item_as_user(pool: &Pool<MySql>) -> Result<(), MyError> {
     let documents = list_documents(pool).await?;
 
     loop {
-        print!("\n");
+        println!();
         println!("1. Create favorite");
         println!("2. List users");
         println!("3. List documents");
@@ -230,9 +230,9 @@ async fn create_favorite(
     users: &HashMap<Option<String>, Option<String>>,
     documents: &HashMap<Option<String>, Option<String>>,
 ) -> Result<(), MyError> {
-    let (_, userToken) = select_from_map::<_, _, fn(&Option<String>) -> &String>("Select a user:", users)?;
-    let (_, documentId) = select_from_map::<_, _, fn(&Option<String>) -> &String>("Select a document:", documents)?;
-    print!("\n");
+    let (_, userToken) = select_from_map("Select a user:", users)?;
+    let (_, documentId) = select_from_map("Select a document:", documents)?;
+    println!();
 
     // Generate a unique favoriteId
     let mut rng = rand::rngs::OsRng;
@@ -320,10 +320,7 @@ fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), My
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    KeyCode::Char('q') => break,
-                    _ => {},
-                }
+                if key_event.code == KeyCode::Char('q') { break }
             }
         }
     }
@@ -345,10 +342,7 @@ fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Resul
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    KeyCode::Char('q') => break,
-                    _ => {},
-                }
+                if key_event.code == KeyCode::Char('q') { break }
             }
         }
     }
@@ -358,11 +352,10 @@ fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Resul
     Ok(())
 }
 
-fn select_from_map<T, U, V>(prompt: &str, choices: &HashMap<T, U>) -> Result<(T, U), MyError>
+fn select_from_map<T, U>(prompt: &str, choices: &HashMap<T, U>) -> Result<(T, U), MyError>
 where
     T: std::cmp::Eq + std::hash::Hash + std::clone::Clone + std::fmt::Debug,
     U: std::clone::Clone + std::fmt::Debug,
-    V: Fn(&U) -> &String,
 {
     println!("{prompt}");
 
@@ -370,7 +363,7 @@ where
         println!("{}. {:?}", i + 1, choice.0);
     }
 
-    print!("\n");
+    println!();
     let index: usize = input("Enter your choice (number): ");
 
     if index > 0 && index <= choices.len() {
