@@ -1,3 +1,4 @@
 Document_Parser/example.pdf
 target
 .vscode/launch.json
+PopulateDB/populatedb_config.toml
