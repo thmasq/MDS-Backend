@@ -6,15 +6,15 @@ use crossterm::event::{self, Event, KeyCode};
 use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use rand::Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::{query, MySql, Pool};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
+use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{stdout, Read};
-
+use std::io::{stdout, BufReader, Read};
+use std::{fmt, fs};
 
 #[derive(Debug)]
 struct User {
@@ -34,7 +34,7 @@ struct Document {
 
 #[derive(Debug)]
 struct Favorite {
-    favoriteId: i64,
+    favoritesId: i64,
     userToken: String,
     documentId: String,
 }
@@ -62,6 +62,16 @@ struct Args {
 
     #[arg(short, long, default_value = "")]
     database: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Entry {
+    id: String,
+    title: Option<String>,
+    date: Option<i64>,
+    content: String,
+    link: String,
+    is_normative: i32,
 }
 
 #[derive(Debug)]
@@ -107,28 +117,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Parse the TOML file into the Args struct
         let config: Args = toml::from_str(&contents).expect("Failed to parse config file");
 
-        args.username = match args.username.is_empty() {
-            true => config.username,
-            false => args.username,
+        args.username = if args.username.is_empty() {
+            config.username
+        } else {
+            args.username
         };
-        args.password = match args.password.is_empty() {
-            true => config.password,
-            false => args.password,
+        args.password = if args.password.is_empty() {
+            config.password
+        } else {
+            args.password
         };
-        args.database = match args.database.is_empty() {
-            true => config.database,
-            false => args.database,
+        args.database = if args.database.is_empty() {
+            config.database
+        } else {
+            args.database
         };
-
     }
 
-	match (args.username.is_empty(), args.password.is_empty(), args.database.is_empty()) {
-		(true, true, true) => {
-			eprintln!("Error: Username, password, and database must be provided either through command-line arguments or in the config file.");
-			std::process::exit(1);
-		}
-		_ => {}
-	}
+    if (
+        args.username.is_empty(),
+        args.password.is_empty(),
+        args.database.is_empty(),
+    ) == (true, true, true)
+    {
+        eprintln!(
+            "Error: Username, password, and database must be provided either through command-line arguments or in the config file."
+        );
+        std::process::exit(1);
+    }
 
     let pool = Pool::connect_with(
         MySqlConnectOptions::new()
@@ -145,7 +161,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("1. Create a new document");
         println!("2. Create a new user");
         println!("3. Favorite an item as a user");
-        println!("4. Exit");
+        println!("4. Load entries into database");
+        println!("5. Exit");
 
         let choice: i32 = input("Enter your choice: ");
 
@@ -153,7 +170,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             1 => create_new_document(&pool).await?,
             2 => create_new_user(&pool).await?,
             3 => favorite_item_as_user(&pool).await?,
-            4 => break,
+            4 => populate_users(&pool).await?,
+            5 => break,
             _ => println!("Invalid choice. Please enter a valid option."),
         }
     }
@@ -275,34 +293,34 @@ async fn create_favorite(
     let (_, documentId) = select_from_map("Select a document:", documents)?;
     println!();
 
-    // Generate a unique favoriteId
+    // Generate a unique favoritesId
     let mut rng = rand::rngs::OsRng;
-    let mut favoriteId: i64;
+    let mut favoritesId: i64;
 
-    // Loop until a unique favoriteId is generated
+    // Loop until a unique favoritesId is generated
     loop {
-        favoriteId = rng.gen();
+        favoritesId = rng.gen();
 
-        // Check if the generated favoriteId already exists in the database
-        let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM favorites WHERE favoriteId = ?", favoriteId)
+        // Check if the generated favoritesId already exists in the database
+        let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) FROM favorites WHERE favoritesId = ?", favoritesId)
             .fetch_one(pool)
             .await?;
 
         if count == 0 {
-            break; // Exit the loop if the favoriteId is unique
+            break; // Exit the loop if the favoritesId is unique
         }
     }
 
     let favorite = Favorite {
-        favoriteId,
+        favoritesId,
         userToken: userToken.clone().expect("No user token Found."),
         documentId: documentId.clone().expect("No document ID found."),
     };
 
     // Insert the new favorite into the FAVORITES table
     let result = sqlx::query!(
-        "INSERT INTO favorites (favoriteId, userToken, documentId) VALUES (?, ?, ?)",
-        favorite.favoriteId,
+        "INSERT INTO favorites (favoritesId, userToken, documentId) VALUES (?, ?, ?)",
+        favorite.favoritesId,
         favorite.userToken,
         favorite.documentId
     )
@@ -494,5 +512,56 @@ where
             Ok(value) => return value,
             Err(err) => println!("Error: {err:?}"),
         }
+    }
+}
+
+async fn populate_users(pool: &Pool<MySql>) -> Result<(), Box<dyn Error>> {
+    // Read the JSON file
+    let entries = read_json_file()?;
+
+    // Insert the entries into the database
+    insert_documents(pool, &entries).await?;
+
+    Ok(())
+}
+
+async fn insert_documents(pool: &Pool<MySql>, entries: &[Entry]) -> Result<(), MyError> {
+    for entry in entries {
+        sqlx::query("INSERT INTO DOCUMENT (docName, link, creationDate, content, docKey) VALUES (?, ?, ?, ?, ?)")
+            .bind(&entry.title.clone().unwrap_or_default())
+            .bind(&entry.link)
+            .bind(entry.date.unwrap_or_default())
+            .bind(&entry.content)
+            .bind(&entry.id)
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
+}
+
+fn read_json_file() -> Result<Vec<Entry>, Box<dyn Error>> {
+    // List all files in the current directory
+    let entries: Vec<_> = fs::read_dir(".")?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().and_then(OsStr::to_str) == Some("json"))
+        .collect();
+
+    // Present the user with a list of options
+    for (i, entry) in entries.iter().enumerate() {
+        println!("{}. {:?}", i + 1, entry.path().display());
+    }
+
+    // Let the user choose a file
+    let index: usize = input("Enter your choice (number): ");
+
+    if index > 0 && index <= entries.len() {
+        let file = File::open(entries[index - 1].path())?;
+        let reader = BufReader::new(file);
+        let entries: Vec<Entry> = serde_json::from_reader(reader)?;
+        Ok(entries)
+    } else {
+        Err(Box::new(MyError::InvalidChoice(
+            "Invalid choice. Please enter a valid option.".to_string(),
+        )))
     }
 }
