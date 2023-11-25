@@ -416,6 +416,9 @@ fn print_favorites(favorites: &[(Option<String>, Option<String>)]) -> Result<(),
             }
         }
     }
+
+    execute!(stdout(), LeaveAlternateScreen)?;
+
     Ok(())
 }
 

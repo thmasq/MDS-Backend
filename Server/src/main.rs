@@ -48,8 +48,8 @@ async fn query_meilisearch(
 }
 
 /// This function serializes the search results since it does not implement the Serialize and
-/// Deserialize traits. It receives a `SearchResults` Struct and returns a JSON formatted string with
-/// the vector of results.
+/// Deserialize traits. It receives a `SearchResults` Struct and returns a JSON formatted string
+/// with the vector of results.
 fn serialize_search_results(search_results: &meilisearch_sdk::search::SearchResults<PDFdoc>) -> String {
     let entries: Vec<PDFdoc> = search_results
         .hits
