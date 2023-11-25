@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::io::stdout;
+use clap::Parser;
 
 #[derive(Debug)]
 struct User {
@@ -33,6 +34,26 @@ struct Favorite {
     favoriteId: i64,
     userToken: String,
     documentId: String,
+}
+const LOCALHOST: &'static str = "localhost";
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value_t = LOCALHOST.to_string())]
+    host: String,
+
+    #[arg(short, long, default_value_t = 3306)]
+    port: u16,
+
+    #[arg(short, long)]
+    username: String,
+
+    #[arg(short, long)]
+    password:String,
+
+    #[arg(short, long)]
+    database: String,
 }
 
 #[derive(Debug)]
@@ -68,13 +89,15 @@ impl From<std::io::Error> for MyError {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
     let pool = Pool::connect_with(
         MySqlConnectOptions::new()
-            .host("localhost")
-            .port(3306)
-            .username("aaaa")
-            .password("aaaaaaaaa")
-            .database("aaaaaa"),
+            .host(&args.host)
+            .port(args.port)
+            .username(&args.username)
+            .password(&args.password)
+            .database(&args.database),
     )
     .await?;
 
