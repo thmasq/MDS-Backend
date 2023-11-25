@@ -102,28 +102,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if the config file exists
     if let Ok(mut file) = File::open("populatedb_config.toml") {
         let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+        file.read_to_string(&mut contents).expect("Failed to read config file");
 
         // Parse the TOML file into the Args struct
-        let config: Args = toml::from_str(&contents)?;
+        let config: Args = toml::from_str(&contents).expect("Failed to parse config file");
 
-        // Merge the command-line arguments and the config file
-        if args.host.is_empty() {
-            args.host = config.host;
-        }
-        if args.port == 0 {
-            args.port = config.port;
-        }
-        if args.username.is_empty() {
-            args.username = config.username;
-        }
-        if args.password.is_empty() {
-            args.password = config.password;
-        }
-        if args.database.is_empty() {
-            args.database = config.database;
-        }
+        args.username = match args.username.is_empty() {
+            true => config.username,
+            false => args.username,
+        };
+        args.password = match args.password.is_empty() {
+            true => config.password,
+            false => args.password,
+        };
+        args.database = match args.database.is_empty() {
+            true => config.database,
+            false => args.database,
+        };
+
     }
+
+	match (args.username.is_empty(), args.password.is_empty(), args.database.is_empty()) {
+		(true, true, true) => {
+			eprintln!("Error: Username, password, and database must be provided either through command-line arguments or in the config file.");
+			std::process::exit(1);
+		}
+		_ => {}
+	}
 
     let pool = Pool::connect_with(
         MySqlConnectOptions::new()
