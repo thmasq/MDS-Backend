@@ -1,0 +1,36 @@
+{
+  "db_name": "MySQL",
+  "query": "\n        SELECT USER.email, DOCUMENT.docName\n        FROM favorites\n        INNER JOIN USER ON favorites.userToken = USER.token\n        INNER JOIN DOCUMENT ON favorites.documentId = DOCUMENT.docKey\n        WHERE USER.email = ?\n        ORDER BY USER.email\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "docName",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "f91b5d01457bdc5aab7eae304041f0630a1eb63a3f359f4505c49a6d5b05a04b"
+}

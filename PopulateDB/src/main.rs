@@ -35,6 +35,13 @@ struct Favorite {
     userToken: String,
     documentId: String,
 }
+
+#[derive(Debug)]
+struct FavoriteItem {
+    email: Option<String>,
+    docName: Option<String>,
+}
+
 const LOCALHOST: &str = "localhost";
 
 #[derive(Parser, Debug)]
@@ -200,18 +207,20 @@ async fn favorite_item_as_user(pool: &Pool<MySql>) -> Result<(), MyError> {
     loop {
         println!();
         println!("1. Create favorite");
-        println!("2. List users");
-        println!("3. List documents");
-        println!("4. Exit");
+        println!("2. List favorites by user");
+        println!("3. List users");
+        println!("4. List documents");
+        println!("5. Exit");
 
         let choice: i32 = input("Enter your choice: ");
         println!();
 
         let result = match choice {
             1 => create_favorite(pool, &users, &documents).await,
-            2 => print_users(&users),
-            3 => print_documents(&documents),
-            4 => break,
+            2 => list_user_favorites(pool, &input::<String>("Enter a user email")).await,
+            3 => print_users(&users),
+            4 => print_documents(&documents),
+            5 => break,
             _ => {
                 println!("\nInvalid choice. Please enter a valid option.");
                 Ok(())
@@ -308,6 +317,31 @@ async fn list_documents(pool: &Pool<MySql>) -> Result<HashMap<Option<String>, Op
     Ok(document_map)
 }
 
+async fn list_user_favorites(pool: &Pool<MySql>, user_email: &str) -> Result<(), MyError> {
+    let favorites = sqlx::query_as!(
+        FavoriteItem,
+        r#"
+        SELECT USER.email, DOCUMENT.docName
+        FROM favorites
+        INNER JOIN USER ON favorites.userToken = USER.token
+        INNER JOIN DOCUMENT ON favorites.documentId = DOCUMENT.docKey
+        WHERE USER.email = ?
+        ORDER BY USER.email
+        "#,
+        user_email
+    )
+    .fetch_all(pool)
+    .await?;
+
+    // Convert the vector of FavoriteItem to a vector of tuples
+    let favorites_tuples: Vec<(Option<String>, Option<String>)> = favorites.into_iter()
+        .map(|item| (item.email, item.docName))
+        .collect();
+
+    // Print the favorites and return the result
+    print_favorites(&favorites_tuples)
+}
+
 fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
     execute!(stdout(), EnterAlternateScreen)?;
 
@@ -349,6 +383,29 @@ fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Resul
 
     execute!(stdout(), LeaveAlternateScreen)?;
 
+    Ok(())
+}
+
+fn print_favorite_item(index: usize, favorite: &(Option<String>, Option<String>)) {
+    println!("{}. User Email: {:?}, Document Title: {:?}", index + 1, favorite.0, favorite.1);
+}
+
+fn print_favorites(favorites: &[(Option<String>, Option<String>)]) -> Result<(), MyError> {
+    execute!(stdout(), EnterAlternateScreen)?;
+
+    println!("\nFavorites:");
+    for (i, favorite) in favorites.iter().enumerate() {
+        print_favorite_item(i, favorite);
+    }
+    println!();
+
+    loop {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(key_event) = event::read()? {
+                if key_event.code == KeyCode::Char('q') { break }
+            }
+        }
+    }
     Ok(())
 }
 
