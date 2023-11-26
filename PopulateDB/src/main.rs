@@ -4,7 +4,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use clap::Parser;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::execute;
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlConnectOptions;
@@ -15,6 +15,10 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{stdout, BufReader, Read};
 use std::{fmt, fs};
+use tui::backend::CrosstermBackend;
+use tui::style::{Color, Style};
+use tui::widgets::{Block, Borders, List, ListItem};
+use tui::Terminal;
 
 #[derive(Debug)]
 struct User {
@@ -415,26 +419,72 @@ fn print_users(users: &HashMap<Option<String>, Option<String>>) -> Result<(), My
     Ok(())
 }
 
+struct DocumentList<'a> {
+    items: Vec<ListItem<'a>>,
+    offset: usize,
+}
+
+impl DocumentList<'_> {
+    fn new(documents: &HashMap<Option<String>, Option<String>>) -> Self {
+        let items: Vec<ListItem> = documents
+            .iter()
+            .enumerate()
+            .map(|(i, (title, _))| ListItem::new(format!("{:02}. {}", i + 1, title.clone().unwrap_or_default())))
+            .collect();
+
+        DocumentList { items, offset: 0 }
+    }
+
+    fn display_items(&self) -> Vec<ListItem> {
+        self.items.iter().skip(self.offset).cloned().collect()
+    }
+}
+
 fn print_documents(documents: &HashMap<Option<String>, Option<String>>) -> Result<(), MyError> {
+    enable_raw_mode()?;
     execute!(stdout(), EnterAlternateScreen)?;
 
-    println!("\nDocuments:");
-    for (i, document) in documents.iter().enumerate() {
-        println!("{}. {:?}", i + 1, document.0);
-    }
-    println!();
+    let backend = CrosstermBackend::new(stdout());
+    let mut terminal = Terminal::new(backend)?;
+
+    let mut document_list = DocumentList::new(documents);
 
     loop {
+        terminal.draw(|f| {
+            // Create a block to surround the list
+            let block = Block::default().borders(Borders::ALL).title("Documents");
+
+            // Create a list widget with items
+            let list = List::new(document_list.display_items())
+                .block(block)
+                .style(Style::default().fg(Color::White));
+
+            // Render the list
+            f.render_widget(list, f.size());
+        })?;
+
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
-                if key_event.code == KeyCode::Char('q') {
-                    break;
+                match key_event.code {
+                    KeyCode::Char('q') => break,
+                    KeyCode::Down => {
+                        // Scroll down
+                        document_list.offset = (document_list.offset)
+                            .saturating_add(5)
+                            .min(document_list.items.len() - 1);
+                    },
+                    KeyCode::Up => {
+                        // Scroll up
+                        document_list.offset = document_list.offset.saturating_sub(5);
+                    },
+                    _ => {},
                 }
             }
         }
     }
 
     execute!(stdout(), LeaveAlternateScreen)?;
+    disable_raw_mode()?;
 
     Ok(())
 }
