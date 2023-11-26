@@ -1,0 +1,16 @@
+# Start from Debian Bullseye
+FROM debian:bullseye
+
+# Set the working directory
+WORKDIR /usr/src/app
+
+# Install the necessary packages for building Rust
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    clang \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    cargo
