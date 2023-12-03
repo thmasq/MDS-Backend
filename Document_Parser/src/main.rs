@@ -1,5 +1,5 @@
 use chrono::Datelike;
-use fancy_regex::Regex;
+use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -70,14 +70,14 @@ fn return_title(formatted_text: &str, keywords: &[&str]) -> Option<String> {
 /// returns upon finding it. First it searches for dates in the Brazilian format, and if it is not
 /// found, it looks for numerical dates.
 fn return_date(formatted_text: &str) -> Option<i64> {
-    if let Some(date) = extract_portuguese_date(formatted_text) {
-        return Some(date);
-    }
-
     for line in formatted_text.lines() {
         if let Some(date) = extract_date(line) {
             return Some(date);
         }
+    }
+
+    if let Some(date) = extract_portuguese_date(formatted_text) {
+        return Some(date);
     }
 
     None
@@ -136,13 +136,14 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
     ];
 
     // Regular expression to match the Portuguese date format
-    let re = Regex::new(r"(\d{1,2})\s*de\s*([^\d\s]+)\s*de\s*(\d{2,4})")
+    let re = Regex::new(r"(?x)(?P<day>\d{1,2})\s*de\s*(?P<month>[^\d\s]+)\s*de\s*(?P<year>\d{4})")
         .expect("Invalid Regular Expression for Portuguese Date.");
+    let captures = re.captures(line);
 
-    if let Ok(Some(captures)) = re.captures(line) {
-        let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
-        let month_str = captures.get(2)?.as_str().to_lowercase();
-        let year_str = captures.get(3)?.as_str();
+    if let Some(captures) = captures {
+        let day: u32 = captures["day"].parse::<u32>().ok()?;
+        let month_str = captures["month"].to_lowercase();
+        let year_str = &captures["year"];
 
         // Convert the Portuguese month name to a numeric month
         let month: Option<u32> = month_names
@@ -171,7 +172,6 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
             return Some(date.and_hms_opt(0, 0, 0)?.timestamp());
         }
     }
-
     None
 }
 
@@ -179,13 +179,14 @@ fn extract_portuguese_date(line: &str) -> Option<i64> {
 /// Line of text and returns a 64-bit integer with Date as Unix Epoch. The regex engine looks for
 /// any slash separated date, ranging from 4 digits up to 8, i.e., from 2/9/23 to 02/09/2023.
 fn extract_date(line: &str) -> Option<i64> {
-    let re = Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{2,4})").expect("Invalid Regular Expression for Date.");
+    let re = Regex::new(r"(?x)(?P<day>\d{2})/(?P<month>\d{2})/(?P<year>\d{4})")
+        .expect("Invalid Regular Expression for Date.");
     let captures = re.captures(line);
 
-    if let Ok(Some(captures)) = captures {
-        let day: u32 = captures.get(1)?.as_str().parse::<u32>().ok()?;
-        let month: u32 = captures.get(2)?.as_str().parse::<u32>().ok()?;
-        let year_str = captures.get(3)?.as_str();
+    if let Some(captures) = captures {
+        let day: u32 = captures["day"].parse::<u32>().ok()?;
+        let month = captures["month"].parse::<u32>().ok()?;
+        let year_str = &captures["year"];
 
         // Determine the year format (2 or 4 digits)
         let year: i32 = if year_str.len() == 2 {
